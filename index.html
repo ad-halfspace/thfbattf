@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="da">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bachelorette Bets</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600&family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="bg-petals" aria-hidden="true"></div>
+    <div class="bg-ambient" aria-hidden="true"></div>
+    <div class="app">
+      <header class="hero" id="site-header">
+        <p class="hero__eyebrow">The official THFBATTF tournament 2026</p>
+        <h1 class="hero__lockup">
+          <span class="hero__wordmark text-gradient-gold">Bachelorette</span>
+          <span class="hero__wordmark hero__wordmark--sm text-gradient-gold">Bets</span>
+        </h1>
+        <p class="hero__tagline">Four friends · three picks each · may the best girly win</p>
+      </header>
+
+
+      <nav class="episode-nav" aria-label="Leaderboard, cast, bet bank og episoder">
+        <div id="main-tabs" class="episode-tabs"></div>
+        <div id="episode-extras" class="episode-extras">
+          <button type="button" id="add-episode" class="btn btn--secondary">+ Add episode</button>
+          <button type="button" id="close-episode" class="btn btn--lock" hidden>Close episode</button>
+          <button type="button" id="reopen-episode" class="btn btn--unlock" hidden>Reopen episode</button>
+          <button type="button" id="delete-episode" class="btn btn--delete">Delete episode</button>
+        </div>
+      </nav>
+
+      <section
+        id="view-overview"
+        class="panel panel--wide view-overview"
+        aria-labelledby="overview-dash-heading"
+      >
+        <h2 id="overview-dash-heading" class="visually-hidden">Overview</h2>
+
+        <div class="overview-block">
+          <h3 id="scoreboard-heading" class="overview-block__title panel__title">Leaderboard</h3>
+          <div id="leaderboard" class="leaderboard"></div>
+        </div>
+
+        <div class="overview-columns">
+          <div class="overview-block">
+            <h3 class="overview-block__title panel__title">Still in the running</h3>
+            <p class="panel__hint overview-block__hint">
+              From the latest episode where you’ve listed contestants; otherwise the full cast.
+            </p>
+            <div id="overview-running-guys" class="overview-chips"></div>
+          </div>
+          <div class="overview-block">
+            <h3 class="overview-block__title panel__title">Most occurred events</h3>
+            <p class="panel__hint overview-block__hint">
+              How often each event was marked as happened, across all episodes.
+            </p>
+            <div id="overview-event-stats" class="overview-event-stats"></div>
+          </div>
+        </div>
+
+        <div class="overview-block">
+          <h3 class="overview-block__title panel__title">All bets</h3>
+          <p class="panel__hint overview-block__hint">
+            All bets placed across every episode — go to an episode page to make changes.
+          </p>
+          <div id="overview-all-bets"></div>
+        </div>
+      </section>
+
+      <section
+        id="view-cast"
+        class="panel panel--wide cast-overview"
+        aria-labelledby="cast-heading"
+        hidden
+      >
+        <h2 id="cast-heading" class="panel__title">Bachelorette 4 (2026) — de 16 bejlere</h2>
+        <p class="panel__hint">
+          Mie Borup og Sofie Sytnik Jørgensen dater 16 mænd på Sicilien. Premiere tirsdag 21. april 2026.
+          Cast og fotos fra
+          <a
+            href="https://omtv2.tv2.dk/presse/pressekit/bachelorette-4-2026/"
+            target="_blank"
+            rel="noopener noreferrer"
+            >TV 2 pressekit</a
+          >.
+        </p>
+        <div id="cast-grid" class="cast-grid"></div>
+      </section>
+
+      <section
+        id="view-event-bank"
+        class="panel panel--wide event-bank-section"
+        aria-labelledby="event-bank-heading"
+        hidden
+      >
+        <h2 id="event-bank-heading" class="panel__title">Bet bank</h2>
+        <p class="panel__hint">
+          Ready-made events grouped by category. Pick an episode, tweak the odds if you like (later episodes
+          may deserve different odds!), then hit <strong>Add</strong>. Create your own bets at the bottom.
+        </p>
+        <div class="event-bank-toolbar">
+          <label class="event-bank-toolbar__label" for="bank-target-episode">Add into episode</label>
+          <select id="bank-target-episode" class="input event-bank-select" aria-describedby="bank-target-hint">
+            <option value="">— Select episode —</option>
+          </select>
+          <span id="bank-target-hint" class="panel__hint event-bank-toolbar__hint">Required before using Add on each row.</span>
+        </div>
+        <div class="event-bank-filters">
+          <div class="event-bank-search-row">
+            <label class="event-bank-search-row__label" for="bank-event-search">Search</label>
+            <input
+              type="search"
+              id="bank-event-search"
+              class="input event-bank-search-row__input"
+              placeholder="Filter events…"
+              autocomplete="off"
+              enterkeyhint="search"
+            />
+          </div>
+          <div class="event-bank-search-row">
+            <label class="event-bank-search-row__label" for="bank-category-filter">Category</label>
+            <select id="bank-category-filter" class="input event-bank-search-row__input">
+              <option value="">All categories</option>
+            </select>
+          </div>
+        </div>
+        <div id="event-bank-list" class="event-bank-list"></div>
+
+        <div class="bank-custom-form">
+          <h3 class="bank-custom-form__title panel__title">Add your own bet</h3>
+          <div class="bank-custom-form__row">
+            <input
+              type="text"
+              id="custom-bank-text"
+              class="input"
+              placeholder="Describe a custom bet…"
+              maxlength="140"
+              autocomplete="off"
+            />
+            <input
+              type="number"
+              id="custom-bank-odds"
+              class="input input--narrow"
+              min="1.1"
+              max="99"
+              step="0.1"
+              value="2.0"
+              title="Decimal odds"
+            />
+            <select id="custom-bank-category" class="input bank-custom-form__cat"></select>
+            <button type="button" id="add-custom-bank-event" class="btn btn--secondary">Add to bank</button>
+          </div>
+        </div>
+      </section>
+
+      <main id="episode-workspace" class="main-grid" hidden>
+        <div id="episode-lock-banner" class="episode-lock-banner" hidden>
+          <span class="episode-lock-banner__icon">&#128274;</span>
+          <span class="episode-lock-banner__text">This episode is closed. Scores are final. <strong>Reopen</strong> above if you need to make changes.</span>
+        </div>
+        <section class="panel" aria-labelledby="guys-heading">
+          <h2 id="guys-heading" class="panel__title">Contestants this episode</h2>
+          <div id="guys-grid" class="guys-grid"></div>
+          <div class="inline-actions">
+            <input
+              type="text"
+              id="new-guy-name"
+              class="input"
+              placeholder="Add a contestant name"
+              maxlength="48"
+            />
+            <button type="button" id="add-guy" class="btn btn--secondary">Add</button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="events-heading">
+          <h2 id="events-heading" class="panel__title">Events &amp; odds</h2>
+          <p class="panel__hint">
+            Odds are shown as multipliers (e.g. 3.5×). Higher = less likely — more points if you’re right.
+          </p>
+          <ul id="events-list" class="events-list"></ul>
+          <div class="add-event">
+            <input
+              type="text"
+              id="new-event-text"
+              class="input"
+              placeholder="Describe an event"
+              maxlength="120"
+              list="master-event-suggestions"
+              autocomplete="off"
+            />
+            <datalist id="master-event-suggestions"></datalist>
+            <input
+              type="number"
+              id="new-event-odds"
+              class="input input--narrow"
+              min="1.1"
+              max="99"
+              step="0.1"
+              value="2"
+              title="Decimal odds multiplier"
+            />
+            <button type="button" id="add-event" class="btn btn--secondary">Add event</button>
+          </div>
+        </section>
+
+        <section class="panel panel--wide" aria-labelledby="bets-heading">
+          <h2 id="bets-heading" class="panel__title">Place bets (3 per person)</h2>
+          <p class="panel__hint">Pick up to three different events for this episode. Duplicates are blocked.</p>
+          <div id="bets-grid" class="bets-grid"></div>
+        </section>
+
+        <section class="panel panel--wide" aria-labelledby="elim-bets-heading">
+          <h2 id="elim-bets-heading" class="panel__title">Who goes home? (1 pick per person)</h2>
+          <p class="panel__hint">
+            Each player picks the one contestant they think won't get a rose.
+            <span id="elim-odds-note" class="elim-odds-note"></span>
+          </p>
+          <div id="elim-bets-grid" class="elim-bets-grid"></div>
+        </section>
+
+        <section class="panel panel--wide" aria-labelledby="results-heading">
+          <h2 id="results-heading" class="panel__title">What actually happened?</h2>
+          <p class="panel__hint">Only events that someone bet on appear here. Tick the ones that occurred.</p>
+          <div id="results-list" class="results-list"></div>
+        </section>
+
+        <section class="panel panel--wide" aria-labelledby="elim-results-heading">
+          <h2 id="elim-results-heading" class="panel__title">Who didn't get a rose?</h2>
+          <p class="panel__hint">Tick each contestant eliminated this episode. They'll be removed from the next episode's lineup.</p>
+          <div id="elim-results-list" class="elim-results-grid"></div>
+          <p id="episode-score-summary" class="score-summary" hidden></p>
+        </section>
+      </main>
+
+      <footer class="footer" id="site-footer">
+        <button type="button" id="reset-data" class="btn btn--ghost">Reset all data</button>
+        <span class="footer__note">Saved in this browser only.</span>
+      </footer>
+    </div>
+    <script defer src="events-bank-data.js"></script>
+    <script defer src="app.js"></script>
+  </body>
+</html>
