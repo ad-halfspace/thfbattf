@@ -1,12 +1,27 @@
 const STORAGE_KEY = "bachelorette-bets-v1";
 const MAX_BETS = 3;
 const PLAYER_COUNT = 4;
-/** Fixed players (not editable) */
 const PLAYER_NAMES = ["Malle", "Dulde", "Yas", "Thiller"];
-/** Primary nav: leaderboard, cast, episodes */
 const OVERVIEW = "overview";
 const CAST = "cast";
 const EVENT_BANK = "event-bank";
+
+/* ── Firebase ── */
+const firebaseConfig = {
+  apiKey: "AIzaSyDQv_7VJRKX9Swt4s1apUgVxXljr8IAVTc",
+  authDomain: "thfbattf.firebaseapp.com",
+  databaseURL: "https://thfbattf-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "thfbattf",
+  storageBucket: "thfbattf.firebasestorage.app",
+  messagingSenderId: "980680524951",
+  appId: "1:980680524951:web:4aaa9eebf95ca872bc15d2",
+  measurementId: "G-X9DCJBDYDL",
+};
+const fbApp = firebase.initializeApp(firebaseConfig);
+const fbDb = firebase.database();
+const fbRef = fbDb.ref("state");
+let firebaseReady = false;
+let suppressFirebaseWrite = false;
 
 function builtInBetEvents() {
   return typeof MASTER_BET_EVENTS !== "undefined" && Array.isArray(MASTER_BET_EVENTS)
@@ -315,8 +330,16 @@ function loadState() {
 
 let state = loadState();
 
+function sharedState() {
+  const { activeTab, ...shared } = state;
+  return shared;
+}
+
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  if (!suppressFirebaseWrite) {
+    fbRef.set(sharedState()).catch(() => {});
+  }
 }
 
 function getEpisode(id) {
@@ -1543,7 +1566,7 @@ function populateCustomCategorySelect() {
   sel.value = "_custom";
 }
 
-function init() {
+function renderAll() {
   normalizeActiveTab();
   renderMainTabs();
   updateViewVisibility();
@@ -1553,7 +1576,36 @@ function init() {
   populateMasterEventDatalist();
   populateCustomCategorySelect();
   renderEventBank();
+}
+
+function init() {
+  renderAll();
   wireActions();
+
+  fbRef.on("value", (snapshot) => {
+    const remote = snapshot.val();
+    if (!remote) {
+      if (!firebaseReady) {
+        fbRef.set(sharedState()).catch(() => {});
+        firebaseReady = true;
+      }
+      return;
+    }
+    firebaseReady = true;
+    const localTab = state.activeTab;
+    suppressFirebaseWrite = true;
+    const merged = { ...defaultState(), ...remote, activeTab: localTab };
+    if (!Array.isArray(merged.customBankEvents)) merged.customBankEvents = [];
+    if (!Array.isArray(merged.hiddenBankEvents)) merged.hiddenBankEvents = [];
+    if (!merged.bankOddsOverrides || typeof merged.bankOddsOverrides !== "object") merged.bankOddsOverrides = {};
+    if (!merged.bankTextOverrides || typeof merged.bankTextOverrides !== "object") merged.bankTextOverrides = {};
+    if (!merged.eliminationBets || typeof merged.eliminationBets !== "object") merged.eliminationBets = {};
+    state = merged;
+    normalizeActiveTab();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    renderAll();
+    suppressFirebaseWrite = false;
+  });
 }
 
 init();
