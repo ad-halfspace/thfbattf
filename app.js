@@ -1503,29 +1503,21 @@ function renderEventBank() {
       const topLine = document.createElement("div");
       topLine.className = "event-bank-row__top-line";
 
+      const phaseBadge = document.createElement("button");
+      phaseBadge.type = "button";
       if (evPhase !== "any") {
-        const phaseBadge = document.createElement("button");
-        phaseBadge.type = "button";
         phaseBadge.className = "phase-badge phase-badge--" + evPhase;
         phaseBadge.textContent = evPhase.replace("-heavy", "").replace("-peak", "");
         phaseBadge.title = "Click to change phase";
-        phaseBadge.addEventListener("click", (e) => {
-          e.stopPropagation();
-          showPhaseDropdown(phaseBadge, evPhase, isCustom, text, _origText);
-        });
-        topLine.append(phaseBadge);
       } else {
-        const phaseBadge = document.createElement("button");
-        phaseBadge.type = "button";
         phaseBadge.className = "phase-badge phase-badge--any";
         phaseBadge.textContent = "any";
         phaseBadge.title = "Click to set phase";
-        phaseBadge.addEventListener("click", (e) => {
-          e.stopPropagation();
-          showPhaseDropdown(phaseBadge, "any", isCustom, text, _origText);
-        });
-        topLine.append(phaseBadge);
       }
+      phaseBadge.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showPhaseDropdown(phaseBadge, evPhase, isCustom, text, _origText);
+      });
 
       const textEl = document.createElement("p");
       textEl.className = "event-bank-row__text event-bank-row__text--editable";
@@ -1645,7 +1637,7 @@ function renderEventBank() {
         populateMasterEventDatalist();
         renderEventBank();
       });
-      meta.append(oddsInput, timesLabel, btn, rm);
+      meta.append(phaseBadge, oddsInput, timesLabel, btn, rm);
       row.append(leftCol, meta);
       body.append(row);
 
@@ -1672,6 +1664,40 @@ function renderMainTabs() {
     { id: SEASON_BETS, label: "Season bets" },
     { id: MY_STATS, label: "Player stats" },
   ];
+
+  function activateTab(id) {
+    state.activeTab = id;
+    saveState();
+    renderMainTabs();
+    updateViewVisibility();
+    if (id === OVERVIEW) renderLeaderboard();
+    if (id === EVENT_BANK) renderEventBank();
+    if (id === SEASON_BETS) renderSeasonBets();
+    if (id === WEEKLY_RECAP) renderWeeklyRecap();
+    if (id === MY_STATS) renderMyStats();
+  }
+
+  function activateEpisode(epId) {
+    state.activeTab = epId;
+    saveState();
+    renderMainTabs();
+    updateViewVisibility();
+    renderEpisodeContent();
+    renderLeaderboard();
+  }
+
+  function currentLabel() {
+    const pg = pages.find((p) => p.id === state.activeTab);
+    if (pg) return pg.label;
+    const epIdx = state.episodes.findIndex((e) => e.id === state.activeTab);
+    if (epIdx >= 0) return episodeTabLabel(epIdx);
+    return "Menu";
+  }
+
+  /* ── desktop tabs (unchanged) ── */
+  const desktopRow = document.createElement("div");
+  desktopRow.className = "tabs-desktop";
+
   pages.forEach(({ id, label }) => {
     const btn = document.createElement("button");
     btn.type = "button";
@@ -1679,24 +1705,14 @@ function renderMainTabs() {
     btn.textContent = label;
     btn.setAttribute("role", "tab");
     btn.setAttribute("aria-selected", state.activeTab === id ? "true" : "false");
-    btn.addEventListener("click", () => {
-      state.activeTab = id;
-      saveState();
-      renderMainTabs();
-      updateViewVisibility();
-      if (id === OVERVIEW) renderLeaderboard();
-      if (id === EVENT_BANK) renderEventBank();
-      if (id === SEASON_BETS) renderSeasonBets();
-      if (id === WEEKLY_RECAP) renderWeeklyRecap();
-      if (id === MY_STATS) renderMyStats();
-    });
-    root.append(btn);
+    btn.addEventListener("click", () => activateTab(id));
+    desktopRow.append(btn);
   });
 
   if (state.episodes.length) {
     const sep = document.createElement("span");
     sep.className = "tab-separator";
-    root.append(sep);
+    desktopRow.append(sep);
 
     const select = document.createElement("select");
     select.className = "tab-episode-select" + (isOnEpisode ? " tab-episode-select--active" : "");
@@ -1708,7 +1724,6 @@ function renderMainTabs() {
       placeholder.selected = true;
       select.append(placeholder);
     }
-
     for (let idx = state.episodes.length - 1; idx >= 0; idx--) {
       const ep = state.episodes[idx];
       const opt = document.createElement("option");
@@ -1717,18 +1732,82 @@ function renderMainTabs() {
       if (ep.id === state.activeTab) opt.selected = true;
       select.append(opt);
     }
-
-    select.addEventListener("change", () => {
-      if (!select.value) return;
-      state.activeTab = select.value;
-      saveState();
-      renderMainTabs();
-      updateViewVisibility();
-      renderEpisodeContent();
-      renderLeaderboard();
-    });
-    root.append(select);
+    select.addEventListener("change", () => { if (select.value) activateEpisode(select.value); });
+    desktopRow.append(select);
   }
+  root.append(desktopRow);
+
+  /* ── mobile menu ── */
+  const mobileBar = document.createElement("div");
+  mobileBar.className = "tabs-mobile";
+
+  const hamburger = document.createElement("button");
+  hamburger.type = "button";
+  hamburger.className = "mobile-menu-btn";
+  hamburger.setAttribute("aria-label", "Open menu");
+  hamburger.innerHTML = `<span class="mobile-menu-btn__bar"></span><span class="mobile-menu-btn__bar"></span><span class="mobile-menu-btn__bar"></span>`;
+
+  const label = document.createElement("span");
+  label.className = "mobile-menu-label";
+  label.textContent = currentLabel();
+
+  mobileBar.append(hamburger, label);
+
+  const drawer = document.createElement("div");
+  drawer.className = "mobile-drawer";
+  drawer.hidden = true;
+
+  const drawerClose = document.createElement("button");
+  drawerClose.type = "button";
+  drawerClose.className = "mobile-drawer__close";
+  drawerClose.innerHTML = "\u2715";
+  drawerClose.setAttribute("aria-label", "Close menu");
+  drawer.append(drawerClose);
+
+  const drawerTitle = document.createElement("span");
+  drawerTitle.className = "mobile-drawer__title";
+  drawerTitle.textContent = "Navigate";
+  drawer.append(drawerTitle);
+
+  pages.forEach(({ id, label: lbl }) => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "mobile-drawer__item" + (state.activeTab === id ? " mobile-drawer__item--active" : "");
+    item.textContent = lbl;
+    item.addEventListener("click", () => { drawer.hidden = true; backdrop.hidden = true; activateTab(id); });
+    drawer.append(item);
+  });
+
+  if (state.episodes.length) {
+    const epHeader = document.createElement("span");
+    epHeader.className = "mobile-drawer__section";
+    epHeader.textContent = "Episodes";
+    drawer.append(epHeader);
+
+    for (let idx = state.episodes.length - 1; idx >= 0; idx--) {
+      const ep = state.episodes[idx];
+      const item = document.createElement("button");
+      item.type = "button";
+      const suffix = ep.closed ? " \u2713" : ep.betsLocked ? " \uD83D\uDD12" : "";
+      item.className = "mobile-drawer__item mobile-drawer__item--ep" + (ep.id === state.activeTab ? " mobile-drawer__item--active" : "");
+      item.textContent = episodeTabLabel(idx) + suffix;
+      item.addEventListener("click", () => { drawer.hidden = true; backdrop.hidden = true; activateEpisode(ep.id); });
+      drawer.append(item);
+    }
+  }
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "mobile-drawer-backdrop";
+  backdrop.hidden = true;
+
+  function openDrawer() { drawer.hidden = false; backdrop.hidden = false; }
+  function closeDrawer() { drawer.hidden = true; backdrop.hidden = true; }
+  hamburger.addEventListener("click", openDrawer);
+  mobileBar.addEventListener("click", openDrawer);
+  drawerClose.addEventListener("click", (e) => { e.stopPropagation(); closeDrawer(); });
+  backdrop.addEventListener("click", closeDrawer);
+
+  root.append(mobileBar, drawer, backdrop);
 }
 
 function initials(name) {
@@ -3062,7 +3141,7 @@ function renderStatsFavoriteEvents(root, stats) {
     tbl.className = "ms-table";
     tbl.innerHTML = "<thead><tr><th>Event</th><th>Bets</th><th>Hits</th><th>Rate</th></tr></thead>";
     const tbody = document.createElement("tbody");
-    for (const e of data) {
+    for (const e of data.slice(0, 5)) {
       const tr = document.createElement("tr");
       tr.innerHTML = `<td class="ms-table__event">${e.text}</td><td>${e.bet}</td><td>${e.hit}</td><td>${e.hitRate}%</td>`;
       tbody.append(tr);

@@ -1056,13 +1056,168 @@ body {
 }
 
 .episode-tabs {
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+/* desktop tab row */
+.tabs-desktop {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
+}
+
+/* mobile bar + drawer — hidden on desktop */
+.tabs-mobile,
+.mobile-drawer,
+.mobile-drawer-backdrop {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .tabs-desktop { display: none; }
+  .tabs-mobile { display: flex; }
+  .mobile-drawer:not([hidden]) { display: flex; }
+  .mobile-drawer-backdrop:not([hidden]) { display: block; }
+}
+
+/* mobile top bar */
+.tabs-mobile {
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  padding: 0.15rem 0;
+}
+
+.mobile-menu-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 3.5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.3rem;
+}
+
+.mobile-menu-btn__bar {
+  display: block;
+  width: 18px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+
+.mobile-menu-label {
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+
+/* slide-in drawer */
+.mobile-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(280px, 80vw);
+  z-index: 1000;
+  background: var(--cream);
+  flex-direction: column;
+  padding: 1.2rem 0 2rem;
+  overflow-y: auto;
+  box-shadow: 4px 0 24px rgba(42, 36, 32, 0.15);
+  animation: drawer-slide-in 0.2s ease-out;
+}
+
+@keyframes drawer-slide-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+.mobile-drawer__close {
+  align-self: flex-end;
+  background: none;
+  border: none;
+  font-size: 1.25rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  padding: 0.3rem 1.2rem 0.5rem;
+}
+
+.mobile-drawer__title {
+  font-family: "Playfair Display", serif;
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--ink);
+  padding: 0 1.2rem 0.75rem;
   border-bottom: 1px solid var(--line);
+  margin-bottom: 0.25rem;
+}
+
+.mobile-drawer__section {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  padding: 0.85rem 1.2rem 0.35rem;
+  border-top: 1px solid var(--line);
+  margin-top: 0.25rem;
+}
+
+.mobile-drawer__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ink);
+  padding: 0.6rem 1.2rem;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.mobile-drawer__item:hover {
+  background: var(--cream-warm);
+}
+
+.mobile-drawer__item--active {
+  font-weight: 700;
+  color: var(--rose-red);
+  background: rgba(166, 42, 42, 0.04);
+  border-left: 3px solid var(--rose-red);
+  padding-left: calc(1.2rem - 3px);
+}
+
+.mobile-drawer__item--ep {
+  font-size: 0.82rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+  color: var(--ink-soft);
+}
+
+.mobile-drawer__item--ep.mobile-drawer__item--active {
+  color: var(--rose-red);
+}
+
+/* backdrop */
+.mobile-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(42, 36, 32, 0.3);
+  animation: backdrop-fade-in 0.2s ease-out;
+}
+
+@keyframes backdrop-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .episode-extras {
@@ -1176,30 +1331,35 @@ body {
   /* event rows: stack text above meta */
   .event-bank-row {
     flex-direction: column;
-    gap: 0.35rem;
-    padding: 0.55rem 0.65rem;
+    gap: 0.3rem;
+    padding: 0.5rem 0.6rem;
   }
   .event-bank-row__meta {
     align-self: flex-end;
-    gap: 0.4rem;
+    gap: 0.3rem;
+  }
+  .event-bank-row__meta .phase-badge {
+    font-size: 0.5rem;
+    padding: 0.1rem 0.35rem;
   }
   .event-bank-row__text,
   .event-bank-row__text-input {
-    font-size: 0.8rem;
+    font-size: 0.78rem;
   }
-  .event-bank-row__odds,
-  .event-bank-row__times {
-    font-size: 0.8rem;
-  }
-  .event-bank-row__btn {
-    padding: 0.3rem 0.6rem;
+  .event-bank-row__odds-input {
+    width: 3.2rem;
+    padding: 0.2rem 0.3rem;
     font-size: 0.72rem;
   }
-
-  /* left/top-line layout inside rows */
-  .event-bank-row__top-line {
-    flex-wrap: wrap;
-    gap: 0.3rem;
+  .event-bank-row__times {
+    font-size: 0.72rem;
+  }
+  .event-bank-row__btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.68rem;
+  }
+  .event-bank-row__remove-custom {
+    font-size: 0.9rem;
   }
 
   /* phase preview */
