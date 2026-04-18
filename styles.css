@@ -559,6 +559,7 @@ body {
 .episode-tabs {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.25rem;
   margin-bottom: 1rem;
   padding-bottom: 1rem;
@@ -596,6 +597,49 @@ body {
 .tab[aria-selected="true"] {
   color: var(--rose-red);
   border-bottom-color: var(--rose-red);
+}
+
+.tab-separator {
+  width: 1px;
+  height: 1.4rem;
+  background: var(--line);
+  margin: 0 0.6rem;
+  flex-shrink: 0;
+}
+
+.tab-episode-select {
+  font-family: inherit;
+  font-weight: 500;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  padding: 0.45rem 1.8rem 0.45rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--cream-card);
+  color: var(--ink-soft);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 10px 6px;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.tab-episode-select:hover {
+  border-color: var(--gold-mid);
+  color: var(--ink);
+}
+
+.tab-episode-select--active {
+  color: var(--rose-red);
+  border-color: var(--rose-red);
+  font-weight: 600;
+}
+
+.tab-episode-select:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
 }
 
 .main-grid {
@@ -846,10 +890,6 @@ body {
 }
 
 
-.tab--closed {
-  opacity: 0.7;
-  font-style: italic;
-}
 
 .events-list {
   list-style: none;

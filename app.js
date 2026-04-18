@@ -730,67 +730,64 @@ function renderMainTabs() {
   const root = document.getElementById("main-tabs");
   root.innerHTML = "";
 
-  const ovBtn = document.createElement("button");
-  ovBtn.type = "button";
-  ovBtn.className = "tab";
-  ovBtn.textContent = "Overview";
-  ovBtn.setAttribute("role", "tab");
-  ovBtn.setAttribute("aria-selected", state.activeTab === OVERVIEW ? "true" : "false");
-  ovBtn.addEventListener("click", () => {
-    state.activeTab = OVERVIEW;
-    saveState();
-    renderMainTabs();
-    updateViewVisibility();
-    renderLeaderboard();
-  });
-  root.append(ovBtn);
+  const isOnEpisode = state.episodes.some((e) => e.id === state.activeTab);
 
-  const castBtn = document.createElement("button");
-  castBtn.type = "button";
-  castBtn.className = "tab";
-  castBtn.textContent = "Bejlere";
-  castBtn.setAttribute("role", "tab");
-  castBtn.setAttribute("aria-selected", state.activeTab === CAST ? "true" : "false");
-  castBtn.addEventListener("click", () => {
-    state.activeTab = CAST;
-    saveState();
-    renderMainTabs();
-    updateViewVisibility();
-  });
-  root.append(castBtn);
-
-  const bankBtn = document.createElement("button");
-  bankBtn.type = "button";
-  bankBtn.className = "tab";
-  bankBtn.textContent = "Bet bank";
-  bankBtn.setAttribute("role", "tab");
-  bankBtn.setAttribute("aria-selected", state.activeTab === EVENT_BANK ? "true" : "false");
-  bankBtn.addEventListener("click", () => {
-    state.activeTab = EVENT_BANK;
-    saveState();
-    renderMainTabs();
-    updateViewVisibility();
-    renderEventBank();
-  });
-  root.append(bankBtn);
-
-  state.episodes.forEach((ep, idx) => {
+  const pages = [
+    { id: OVERVIEW, label: "Overview" },
+    { id: CAST, label: "Bejlere" },
+    { id: EVENT_BANK, label: "Bet bank" },
+  ];
+  pages.forEach(({ id, label }) => {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.className = "tab" + (ep.closed ? " tab--closed" : "");
-    btn.textContent = episodeTabLabel(idx) + (ep.closed ? " \u2713" : "");
+    btn.className = "tab";
+    btn.textContent = label;
     btn.setAttribute("role", "tab");
-    btn.setAttribute("aria-selected", ep.id === state.activeTab ? "true" : "false");
+    btn.setAttribute("aria-selected", state.activeTab === id ? "true" : "false");
     btn.addEventListener("click", () => {
-      state.activeTab = ep.id;
+      state.activeTab = id;
+      saveState();
+      renderMainTabs();
+      updateViewVisibility();
+      if (id === OVERVIEW) renderLeaderboard();
+      if (id === EVENT_BANK) renderEventBank();
+    });
+    root.append(btn);
+  });
+
+  if (state.episodes.length) {
+    const sep = document.createElement("span");
+    sep.className = "tab-separator";
+    root.append(sep);
+
+    const select = document.createElement("select");
+    select.className = "tab-episode-select" + (isOnEpisode ? " tab-episode-select--active" : "");
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = isOnEpisode ? "" : "Episodes…";
+    placeholder.disabled = true;
+    if (!isOnEpisode) placeholder.selected = true;
+    select.append(placeholder);
+
+    state.episodes.forEach((ep, idx) => {
+      const opt = document.createElement("option");
+      opt.value = ep.id;
+      opt.textContent = episodeTabLabel(idx) + (ep.closed ? " \u2713" : "");
+      if (ep.id === state.activeTab) opt.selected = true;
+      select.append(opt);
+    });
+
+    select.addEventListener("change", () => {
+      if (!select.value) return;
+      state.activeTab = select.value;
       saveState();
       renderMainTabs();
       updateViewVisibility();
       renderEpisodeContent();
       renderLeaderboard();
     });
-    root.append(btn);
-  });
+    root.append(select);
+  }
 }
 
 function initials(name) {
