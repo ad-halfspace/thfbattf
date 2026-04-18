@@ -29,7 +29,22 @@
       <nav class="episode-nav" aria-label="Leaderboard, cast, bet bank og episoder">
         <div id="main-tabs" class="episode-tabs"></div>
         <div id="episode-extras" class="episode-extras">
-          <button type="button" id="add-episode" class="btn btn--secondary">+ Add episode</button>
+          <button type="button" id="add-episode-toggle" class="btn btn--secondary">+ Add episode</button>
+          <div id="add-episode-modal" class="modal-overlay" hidden>
+            <div class="modal-overlay__box">
+              <h3 class="modal-overlay__title">New episode</h3>
+              <label class="modal-overlay__field">
+                <span class="modal-overlay__label">Air date</span>
+                <input type="date" id="new-ep-airdate" class="input" />
+              </label>
+              <div class="modal-overlay__actions">
+                <button type="button" id="add-episode" class="btn btn--secondary">Create episode</button>
+                <button type="button" id="add-episode-cancel" class="btn btn--ghost">Cancel</button>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="lock-bets" class="btn btn--lock-bets" hidden>&#128274; Lock bets now</button>
+          <button type="button" id="unlock-bets" class="btn btn--unlock-bets" hidden>&#128275; Unlock bets</button>
           <button type="button" id="close-episode" class="btn btn--lock" hidden>Close episode</button>
           <button type="button" id="reopen-episode" class="btn btn--unlock" hidden>Reopen episode</button>
           <button type="button" id="delete-episode" class="btn btn--delete">Delete episode</button>
@@ -42,9 +57,11 @@
         aria-labelledby="overview-dash-heading"
       >
         <h2 id="overview-dash-heading" class="visually-hidden">Overview</h2>
+        <div id="upcoming-deadline-strip" class="upcoming-deadline-strip" hidden></div>
 
         <div class="overview-block">
           <h3 id="scoreboard-heading" class="overview-block__title panel__title">Leaderboard</h3>
+          <p class="panel__hint overview-block__hint" id="lb-bet-status-hint"></p>
           <div id="leaderboard" class="leaderboard"></div>
         </div>
 
@@ -57,11 +74,11 @@
             <div id="overview-running-guys" class="overview-chips"></div>
           </div>
           <div class="overview-block">
-            <h3 class="overview-block__title panel__title">Most occurred events</h3>
+            <h3 class="overview-block__title panel__title">&#128293; Streak leaders</h3>
             <p class="panel__hint overview-block__hint">
-              How often each event was marked as happened, across all episodes.
+              Consecutive episodes with at least one correct bet.
             </p>
-            <div id="overview-event-stats" class="overview-event-stats"></div>
+            <div id="overview-streak-leaders" class="overview-streak-leaders"></div>
           </div>
         </div>
 
@@ -102,8 +119,9 @@
       >
         <h2 id="event-bank-heading" class="panel__title">Bet bank</h2>
         <p class="panel__hint">
-          Ready-made events grouped by category. Pick an episode, tweak the odds if you like (later episodes
-          may deserve different odds!), then hit <strong>Add</strong>. Create your own bets at the bottom.
+          Ready-made events grouped by category. Pick an episode, tweak the odds if you like, then hit
+          <strong>Add</strong>. Events tagged with a phase (early / mid / late) auto-adjust their odds based on
+          where the episode falls in the season. Create your own bets at the bottom.
         </p>
         <div class="event-bank-toolbar">
           <label class="event-bank-toolbar__label" for="bank-target-episode">Add into episode</label>
@@ -155,9 +173,49 @@
               title="Decimal odds"
             />
             <select id="custom-bank-category" class="input bank-custom-form__cat"></select>
+            <select id="custom-bank-phase" class="input bank-custom-form__phase" title="Season phase weighting">
+              <option value="any">any phase</option>
+              <option value="early-heavy">early</option>
+              <option value="mid-peak">mid</option>
+              <option value="late-heavy">late</option>
+            </select>
             <button type="button" id="add-custom-bank-event" class="btn btn--secondary">Add to bank</button>
           </div>
         </div>
+      </section>
+
+      <section
+        id="view-weekly-recap"
+        class="panel panel--wide weekly-recap-section"
+        aria-labelledby="weekly-recap-heading"
+        hidden
+      >
+        <h2 id="weekly-recap-heading" class="panel__title">Ugentlig opsummering</h2>
+        <div id="weekly-recap-progress" class="weekly-recap-progress"></div>
+        <div id="weekly-recap-cards" class="weekly-recap-cards"></div>
+      </section>
+
+      <section
+        id="view-season-bets"
+        class="panel panel--wide season-bets-section"
+        aria-labelledby="season-bets-heading"
+        hidden
+      >
+        <h2 id="season-bets-heading" class="panel__title">Season bets</h2>
+        <p class="panel__hint">
+          One-time predictions placed before the season starts. Lock them in,
+          then see how you did at the finale. Points are added to the main leaderboard.
+        </p>
+        <div id="season-bets-lock-bar" class="season-bets-lock-bar"></div>
+        <div id="season-bets-cards" class="season-bets-cards"></div>
+        <div id="season-results-section" class="season-results-section">
+          <h3 class="overview-block__title panel__title">Results</h3>
+          <p class="panel__hint">
+            Fill in the actual outcomes as they happen. Points are awarded automatically.
+          </p>
+          <div id="season-results-grid" class="season-results-grid"></div>
+        </div>
+        <div id="season-points-summary" class="season-points-summary"></div>
       </section>
 
       <main id="episode-workspace" class="main-grid" hidden>
@@ -165,6 +223,12 @@
           <span class="episode-lock-banner__icon">&#128274;</span>
           <span class="episode-lock-banner__text">This episode is closed. Scores are final. <strong>Reopen</strong> above if you need to make changes.</span>
         </div>
+        <div id="bets-lock-banner" class="bets-lock-banner" hidden>
+          <span class="bets-lock-banner__icon">&#128274;</span>
+          <span id="bets-lock-banner-text" class="bets-lock-banner__text">Bets are locked.</span>
+        </div>
+        <div id="deadline-display" class="deadline-display" hidden></div>
+        <div id="episode-airdate-bar" class="episode-airdate-bar" hidden></div>
         <section class="panel" aria-labelledby="guys-heading">
           <h2 id="guys-heading" class="panel__title">Contestants this episode</h2>
           <div id="guys-grid" class="guys-grid"></div>
@@ -213,7 +277,7 @@
 
         <section class="panel panel--wide" aria-labelledby="bets-heading">
           <h2 id="bets-heading" class="panel__title">Place bets (3 per person)</h2>
-          <p class="panel__hint">Pick up to three different events for this episode. Duplicates are blocked.</p>
+          <p class="panel__hint">Each player picks 3 events they think will happen this episode.</p>
           <div id="bets-grid" class="bets-grid"></div>
         </section>
 
@@ -226,13 +290,13 @@
           <div id="elim-bets-grid" class="elim-bets-grid"></div>
         </section>
 
-        <section class="panel panel--wide" aria-labelledby="results-heading">
+        <section class="panel panel--wide panel--scoring" aria-labelledby="results-heading">
           <h2 id="results-heading" class="panel__title">What actually happened?</h2>
           <p class="panel__hint">Only events that someone bet on appear here. Tick the ones that occurred.</p>
           <div id="results-list" class="results-list"></div>
         </section>
 
-        <section class="panel panel--wide" aria-labelledby="elim-results-heading">
+        <section class="panel panel--wide panel--scoring" aria-labelledby="elim-results-heading">
           <h2 id="elim-results-heading" class="panel__title">Who didn't get a rose?</h2>
           <p class="panel__hint">Tick each contestant eliminated this episode. They'll be removed from the next episode's lineup.</p>
           <div id="elim-results-list" class="elim-results-grid"></div>

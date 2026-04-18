@@ -5,6 +5,19 @@ const PLAYER_NAMES = ["Malle", "Dulde", "Yas", "Thiller"];
 const OVERVIEW = "overview";
 const CAST = "cast";
 const EVENT_BANK = "event-bank";
+const SEASON_BETS = "season-bets";
+const WEEKLY_RECAP = "weekly-recap";
+
+const EXPECTED_SEASON_LENGTH = 25;
+
+const SEASON_BET_CATEGORIES = [
+  { key: "miesWinner",      label: "Mie\u2019s final rose",          desc: "Who does Mie pick in the finale?",                points: 20 },
+  { key: "sofiesWinner",    label: "Sofie\u2019s final rose",        desc: "Who does Sofie pick in the finale?",              points: 20 },
+  { key: "firstKiss",       label: "First couple to kiss",           desc: "Which contestant shares the first kiss?",         points: 10 },
+  { key: "firstToCry",      label: "First to cry",                   desc: "Which contestant cries first on screen?",         points: 8 },
+  { key: "firstEliminated", label: "First eliminated",               desc: "Who is the very first contestant sent home?",     points: 12 },
+  { key: "darkHorse",       label: "Dark horse (out after ep. 5)",   desc: "Pick someone eliminated after episode 5.",        points: 15 },
+];
 
 /* ── Firebase ── */
 const firebaseConfig = {
@@ -39,12 +52,14 @@ function masterBetEvents() {
   const hidden = new Set(state.hiddenBankEvents || []);
   const overrides = state.bankOddsOverrides || {};
   const textOverrides = state.bankTextOverrides || {};
+  const phaseOverrides = state.bankPhaseOverrides || {};
   const builtIn = builtInBetEvents()
     .filter((ev) => !hidden.has(ev.text))
     .map((ev) => {
       const o = { ...ev, _origText: ev.text };
       if (overrides[ev.text] != null) o.odds = overrides[ev.text];
       if (textOverrides[ev.text]) o.text = textOverrides[ev.text];
+      if (phaseOverrides[ev.text]) o.phase = phaseOverrides[ev.text];
       return o;
     });
   const custom = (state.customBankEvents || []).map((ev) => ({ ...ev, _origText: null }));
@@ -291,6 +306,16 @@ function defaultState() {
     bankOddsOverrides: {},
     /** { originalText: newText } — user-renamed built-in events */
     bankTextOverrides: {},
+    /** { originalText: newPhase } — user-changed phase for built-in events */
+    bankPhaseOverrides: {},
+    /** Season-long bets: playerIndex -> { categoryKey: contestantName } */
+    seasonBets: {},
+    /** Actual season results: { categoryKey: contestantName } */
+    seasonResults: {},
+    /** Whether season bets are locked (no more changes) */
+    seasonBetsLocked: false,
+    /** { contestantName: { text, lastEditedBy } } */
+    contestantNotes: {},
   };
 }
 
@@ -311,17 +336,30 @@ function loadState() {
       activeTab === OVERVIEW ||
       activeTab === CAST ||
       activeTab === EVENT_BANK ||
+      activeTab === SEASON_BETS ||
       episodes.some((e) => e.id === activeTab);
     if (!tabOk) {
       activeTab = OVERVIEW;
     }
     const { activeEpisodeId: _legacy, playerNames: _oldNames, ...rest } = parsed;
     const result = { ...defaultState(), ...rest, episodes, activeTab };
+    if (!result.bets || typeof result.bets !== "object") result.bets = {};
+    if (!result.occurred || typeof result.occurred !== "object") result.occurred = {};
     if (!Array.isArray(result.customBankEvents)) result.customBankEvents = [];
     if (!Array.isArray(result.hiddenBankEvents)) result.hiddenBankEvents = [];
     if (!result.bankOddsOverrides || typeof result.bankOddsOverrides !== "object") result.bankOddsOverrides = {};
     if (!result.bankTextOverrides || typeof result.bankTextOverrides !== "object") result.bankTextOverrides = {};
+    if (!result.bankPhaseOverrides || typeof result.bankPhaseOverrides !== "object") result.bankPhaseOverrides = {};
     if (!result.eliminationBets || typeof result.eliminationBets !== "object") result.eliminationBets = {};
+    if (!result.seasonBets || typeof result.seasonBets !== "object") result.seasonBets = {};
+    if (!result.seasonResults || typeof result.seasonResults !== "object") result.seasonResults = {};
+    if (typeof result.seasonBetsLocked !== "boolean") result.seasonBetsLocked = false;
+    if (!result.contestantNotes || typeof result.contestantNotes !== "object") result.contestantNotes = {};
+    for (const ep of result.episodes) {
+      if (!Array.isArray(ep.events)) ep.events = [];
+      if (!Array.isArray(ep.eliminated)) ep.eliminated = [];
+      if (!Array.isArray(ep.guys)) ep.guys = [];
+    }
     return result;
   } catch {
     return defaultState();
@@ -333,6 +371,46 @@ let state = loadState();
 function sharedState() {
   const { activeTab, ...shared } = state;
   return shared;
+}
+
+const CURRENT_PLAYER_KEY = "bachelorette-current-player";
+let currentPlayer = localStorage.getItem(CURRENT_PLAYER_KEY) || "";
+if (!PLAYER_NAMES.includes(currentPlayer)) currentPlayer = "";
+
+function setCurrentPlayer(name) {
+  currentPlayer = name;
+  localStorage.setItem(CURRENT_PLAYER_KEY, name);
+}
+
+const noteEditHistory = {};
+
+const noteSaveTimers = {};
+function saveNoteDebounced(contestantName, text, delay) {
+  clearTimeout(noteSaveTimers[contestantName]);
+  noteSaveTimers[contestantName] = setTimeout(() => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      delete state.contestantNotes[contestantName];
+    } else {
+      if (!noteEditHistory[contestantName]) noteEditHistory[contestantName] = [];
+      const prev = state.contestantNotes[contestantName]?.text;
+      if (prev && prev !== trimmed) {
+        noteEditHistory[contestantName].unshift(prev);
+        if (noteEditHistory[contestantName].length > 3) noteEditHistory[contestantName].length = 3;
+      }
+      state.contestantNotes[contestantName] = {
+        text: trimmed.slice(0, 1000),
+        lastEditedBy: currentPlayer || "?",
+      };
+    }
+    saveState();
+    const indicator = document.querySelector(`.cast-note[data-name="${CSS.escape(contestantName)}"] .cast-note__saving`);
+    if (indicator) {
+      indicator.textContent = "gemt \u2713";
+      indicator.classList.add("cast-note__saving--visible");
+      setTimeout(() => indicator.classList.remove("cast-note__saving--visible"), 1200);
+    }
+  }, delay);
 }
 
 function saveState() {
@@ -347,7 +425,7 @@ function getEpisode(id) {
 }
 
 function normalizeActiveTab() {
-  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK) return;
+  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === SEASON_BETS || state.activeTab === WEEKLY_RECAP) return;
   if (!getEpisode(state.activeTab)) {
     state.activeTab = state.episodes[0]?.id ?? OVERVIEW;
     saveState();
@@ -355,7 +433,7 @@ function normalizeActiveTab() {
 }
 
 function activeEpisode() {
-  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK) return null;
+  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === WEEKLY_RECAP) return null;
   return getEpisode(state.activeTab);
 }
 
@@ -363,7 +441,383 @@ function isEpisodeClosed(ep) {
   return ep?.closed === true;
 }
 
+function isEpisodeBetsLocked(ep) {
+  return ep?.betsLocked === true || isEpisodeClosed(ep);
+}
+
+function getNextAirDate(from) {
+  const d = new Date(from);
+  d.setHours(12, 0, 0, 0);
+  for (let i = 1; i <= 7; i++) {
+    const next = new Date(d);
+    next.setDate(d.getDate() + i);
+    const dow = next.getDay();
+    if (dow === 2 || dow === 3 || dow === 4) {
+      return next.toISOString().slice(0, 10);
+    }
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function suggestNextAirDate() {
+  const lastEp = [...state.episodes].reverse().find((ep) => ep.airDate);
+  if (lastEp) return getNextAirDate(new Date(lastEp.airDate + "T12:00:00"));
+  return getNextAirDate(new Date());
+}
+
+function copenhagenMidnight(dateString) {
+  const [y, m, d] = dateString.split("-").map(Number);
+  const prevDay = new Date(y, m - 1, d - 1);
+  const py = prevDay.getFullYear(), pm = prevDay.getMonth() + 1, pd = prevDay.getDate();
+  const guess = new Date(Date.UTC(py, pm - 1, pd, 22, 0, 0));
+  for (let offsetH = -2; offsetH <= 2; offsetH++) {
+    const ts = guess.getTime() - offsetH * 3600000;
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Copenhagen",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour12: false
+    }).formatToParts(new Date(ts));
+    const get = (t) => Number(parts.find((p) => p.type === t).value);
+    if (get("day") === pd && get("month") === pm && get("hour") === 23 && get("minute") === 0) {
+      return ts + 59 * 60000;
+    }
+  }
+  return new Date(Date.UTC(py, pm - 1, pd, 21, 59, 0)).getTime();
+}
+
+function formatCountdown(deadlineMs) {
+  const diff = deadlineMs - Date.now();
+  if (diff <= 0) return "nu";
+  const min = Math.floor(diff / 60000);
+  if (min < 60) return `${min} min`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} time${hr > 1 ? "r" : ""}`;
+  const days = Math.floor(hr / 24);
+  return `${days} dag${days > 1 ? "e" : ""}`;
+}
+
+function formatDeadlineTime(ms) {
+  if (!ms) return "";
+  return new Intl.DateTimeFormat("da-DK", {
+    timeZone: "Europe/Copenhagen",
+    weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit", hour12: false
+  }).format(new Date(ms));
+}
+
+function toLocalDatetimeString(d) {
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function isEliminationEpisode(ep) {
+  if (!ep) return true;
+  if (typeof ep.hasElimination === "boolean") return ep.hasElimination;
+  if (!ep.airDate) return true;
+  const [y, m, d] = ep.airDate.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  return dow === 4;
+}
+
+/* ── Weekly recap helpers ── */
+const DANISH_MONTHS = ["januar","februar","marts","april","maj","juni","juli","august","september","oktober","november","december"];
+const DANISH_DAYS = { 0: "s\u00F8n.", 1: "man.", 2: "tir.", 3: "ons.", 4: "tor.", 5: "fre.", 6: "l\u00F8r." };
+const DANISH_DAYS_LONG = { 2: "tirsdag", 3: "onsdag", 4: "torsdag" };
+
+function getISOWeekNumber(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  const dayOfWeek = date.getDay() || 7;
+  date.setDate(date.getDate() + 4 - dayOfWeek);
+  const yearStart = new Date(date.getFullYear(), 0, 1);
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+
+function getWeekId(dateStr) {
+  if (!dateStr) return null;
+  const [y] = dateStr.split("-").map(Number);
+  const wn = getISOWeekNumber(dateStr);
+  return `${y}-${String(wn).padStart(2, "0")}`;
+}
+
+function getDayOfWeek(dateStr) {
+  if (!dateStr) return null;
+  const [y, m, d] = dateStr.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+function getDayOfWeekDanish(dateStr) {
+  const dow = getDayOfWeek(dateStr);
+  return DANISH_DAYS_LONG[dow] || DANISH_DAYS[dow] || "";
+}
+
+function formatDanishDate(dateStr) {
+  if (!dateStr) return "";
+  const [, m, d] = dateStr.split("-").map(Number);
+  return `${d}. ${DANISH_MONTHS[m - 1]}`;
+}
+
+function formatDanishDateRange(startStr, endStr) {
+  if (!startStr || !endStr) return formatDanishDate(startStr || endStr);
+  const [, sm, sd] = startStr.split("-").map(Number);
+  const [, em, ed] = endStr.split("-").map(Number);
+  if (sm === em) return `${sd}.\u2013${ed}. ${DANISH_MONTHS[sm - 1]}`;
+  return `${sd}. ${DANISH_MONTHS[sm - 1]} \u2013 ${ed}. ${DANISH_MONTHS[em - 1]}`;
+}
+
+function formatDanishNumber(n) {
+  return n.toLocaleString("da-DK", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+function getEpisodesForWeek(weekId) {
+  return state.episodes
+    .filter((ep) => ep.airDate && getWeekId(ep.airDate) === weekId)
+    .sort((a, b) => a.airDate.localeCompare(b.airDate));
+}
+
+function isWeekComplete(weekId) {
+  const eps = getEpisodesForWeek(weekId);
+  return eps.length > 0 && eps.every((ep) => isEpisodeClosed(ep));
+}
+
+function getCeremonyEpisodeForWeek(weekId) {
+  return getEpisodesForWeek(weekId).find((ep) => isEliminationEpisode(ep)) || null;
+}
+
+function getAllWeekIds() {
+  const ids = new Set();
+  for (const ep of state.episodes) {
+    const wid = getWeekId(ep.airDate);
+    if (wid) ids.add(wid);
+  }
+  return [...ids].sort().reverse();
+}
+
+function computeWeeklyRecap(weekId) {
+  const eps = getEpisodesForWeek(weekId);
+  if (!eps.length) return null;
+  const airDates = eps.map((e) => e.airDate).filter(Boolean);
+  const dateRange = formatDanishDateRange(airDates[0], airDates[airDates.length - 1]);
+  const allSorted = getAllWeekIds().slice().sort();
+  const weekNum = allSorted.indexOf(weekId) + 1;
+
+  const streaks = getStreaks();
+
+  const weeklyPoints = PLAYER_NAMES.map(() => 0);
+  const perEpisode = [];
+  let biggestPayout = null;
+  let biggestWhiff = null;
+  const eventBetCounts = new Map();
+
+  for (const ep of eps) {
+    ensureEpisodeMaps(ep.id);
+    if (!Array.isArray(ep.events)) ep.events = [];
+    const occurred = new Set(state.occurred[ep.id] || []);
+    const elimSet = new Set(ep.eliminated || []);
+    const elimOdd = eliminationOdds(ep);
+    const epPts = episodePoints(ep);
+    const dayName = getDayOfWeekDanish(ep.airDate);
+    const hasElim = isEliminationEpisode(ep);
+
+    let epWinnerIdx = 0;
+    let epWinnerPts = epPts[0];
+    for (let p = 0; p < PLAYER_COUNT; p++) {
+      weeklyPoints[p] += epPts[p];
+      if (epPts[p] > epWinnerPts) { epWinnerPts = epPts[p]; epWinnerIdx = p; }
+    }
+
+    let epMoment = null;
+    for (let p = 0; p < PLAYER_COUNT; p++) {
+      const picks = (state.bets[ep.id][p] || []).filter(Boolean);
+      for (const evId of picks) {
+        const ev = ep.events.find((e) => e.id === evId);
+        if (!ev) continue;
+        const odds = Number(ev.odds) || 0;
+        const evKey = ev.text.trim();
+        eventBetCounts.set(evKey, (eventBetCounts.get(evKey) || { count: 0, hit: occurred.has(evId), text: evKey }) );
+        eventBetCounts.get(evKey).count++;
+        if (occurred.has(evId)) {
+          eventBetCounts.get(evKey).hit = true;
+          if (!biggestPayout || odds > biggestPayout.odds) {
+            biggestPayout = { player: PLAYER_NAMES[p], text: evKey, odds, day: dayName };
+          }
+          if (!epMoment || odds > epMoment.odds) {
+            epMoment = { type: "win", player: PLAYER_NAMES[p], text: evKey, odds };
+          }
+        } else {
+          if (!biggestWhiff || odds > biggestWhiff.odds) {
+            biggestWhiff = { player: PLAYER_NAMES[p], text: evKey, odds, day: dayName };
+          }
+        }
+      }
+    }
+
+    perEpisode.push({
+      id: ep.id,
+      title: ep.title || episodeTabLabel(state.episodes.indexOf(ep)),
+      airDate: ep.airDate,
+      dayOfWeek: dayName,
+      winner: PLAYER_NAMES[epWinnerIdx],
+      winnerPts: epWinnerPts,
+      isCeremony: hasElim,
+      eliminated: hasElim ? [...elimSet] : [],
+      moment: epMoment,
+    });
+  }
+
+  const streakBonus = PLAYER_NAMES.map((_, i) => {
+    let bonus = 0;
+    for (const ep of eps) {
+      const bd = streaks[i]?.episodeBreakdown?.find((b) => b.episodeId === ep.id);
+      if (bd?.bonus > 0) bonus += bd.bonus;
+    }
+    return bonus;
+  });
+  for (let p = 0; p < PLAYER_COUNT; p++) weeklyPoints[p] += streakBonus[p];
+
+  const scoreboard = PLAYER_NAMES.map((_, i) => {
+    let bestEpDay = "";
+    let bestEpPts = -1;
+    for (const epInfo of perEpisode) {
+      const ep = eps.find((e) => e.id === epInfo.id);
+      const pts = episodePoints(ep);
+      if (pts[i] > bestEpPts) { bestEpPts = pts[i]; bestEpDay = epInfo.dayOfWeek; }
+    }
+    return { playerIndex: i, weekPoints: weeklyPoints[i], bestEpisodeDay: bestEpDay, bestEpisodePts: bestEpPts };
+  }).sort((a, b) => b.weekPoints - a.weekPoints);
+  scoreboard.forEach((s, idx) => { s.rank = idx + 1; });
+
+  const ceremonyEp = getCeremonyEpisodeForWeek(weekId);
+  const eliminations = [];
+  let eliminationCallText = null;
+  if (ceremonyEp) {
+    ensureEpisodeMaps(ceremonyEp.id);
+    ensureEliminatedArray(ceremonyEp);
+    const elimSet = new Set(ceremonyEp.eliminated || []);
+    if (elimSet.size === 0) {
+      eliminationCallText = "Ingen elimineringer denne uge";
+    } else {
+      const callers = [];
+      for (const name of elimSet) {
+        const calledBy = [];
+        for (let p = 0; p < PLAYER_COUNT; p++) {
+          if (state.eliminationBets[ceremonyEp.id]?.[p] === name) calledBy.push(p);
+        }
+        eliminations.push({ contestantName: name, photoUrl: castPhotoByName(name), calledBy });
+        callers.push(...calledBy);
+      }
+      const uniqueCallers = [...new Set(callers)];
+      if (uniqueCallers.length === 0) {
+        const names = [...elimSet].join(" og ");
+        eliminationCallText = `En uge med overraskelser \u2014 ingen s\u00E5 det komme`;
+      } else if (uniqueCallers.length === 1) {
+        eliminationCallText = `\uD83C\uDFAF Kun ${PLAYER_NAMES[uniqueCallers[0]]} ramte plet`;
+      }
+    }
+  }
+
+  const hotStreak = streaks.reduce((best, s, i) => {
+    const cur = s?.currentStreak || 0;
+    return cur > (best?.count || 0) ? { player: PLAYER_NAMES[i], count: cur } : best;
+  }, null);
+
+  const mostPlayed = [...eventBetCounts.values()].sort((a, b) => b.count - a.count)[0] || null;
+
+  const totalSeason = totalPointsAllEpisodes();
+  const sPts = seasonBetPoints();
+  const seasonTotals = totalSeason.map((v, i) => v + sPts[i] + (streaks[i]?.bonusPointsEarned || 0));
+  const prevWeekIds = getAllWeekIds().filter((w) => w < weekId);
+  let prevRanks = null;
+  if (prevWeekIds.length) {
+    const prevTotals = PLAYER_NAMES.map(() => 0);
+    for (const ep of state.episodes) {
+      const wid = getWeekId(ep.airDate);
+      if (!wid || wid > prevWeekIds[0]) continue;
+      const pts = episodePoints(ep);
+      pts.forEach((v, i) => { prevTotals[i] += v; });
+    }
+    const prevSorted = prevTotals.map((v, i) => ({ i, pts: v + sPts[i] + (streaks[i]?.bonusPointsEarned || 0) - weeklyPoints[i] }))
+      .sort((a, b) => b.pts - a.pts);
+    prevRanks = PLAYER_NAMES.map((_, i) => prevSorted.findIndex((s) => s.i === i) + 1);
+  }
+
+  const seasonSorted = seasonTotals.map((pts, i) => ({ i, pts })).sort((a, b) => b.pts - a.pts);
+  const firstPts = seasonSorted[0]?.pts || 0;
+  const seasonStandings = seasonSorted.map((s, idx) => {
+    const rank = idx + 1;
+    let rankChange = null;
+    if (prevRanks) {
+      const diff = prevRanks[s.i] - rank;
+      rankChange = diff > 0 ? `\u2191${diff}` : diff < 0 ? `\u2193${Math.abs(diff)}` : "\u2192";
+    }
+    return {
+      playerIndex: s.i,
+      totalPoints: s.pts,
+      weekPointsGained: weeklyPoints[s.i],
+      rank,
+      rankChange,
+      streakCount: streaks[s.i]?.currentStreak || 0,
+      distanceToFirst: rank === 1 ? 0 : firstPts - s.pts,
+    };
+  });
+
+  const runningGuys = getRunningGuyNames();
+
+  const nextWeekDates = [];
+  const lastAirDate = airDates[airDates.length - 1];
+  if (lastAirDate) {
+    let cursor = new Date(lastAirDate + "T12:00:00");
+    for (let tries = 0; tries < 7 && nextWeekDates.length < 3; tries++) {
+      cursor.setDate(cursor.getDate() + 1);
+      const dow = cursor.getDay();
+      if (dow >= 2 && dow <= 4) nextWeekDates.push(cursor.toISOString().slice(0, 10));
+    }
+  }
+
+  return {
+    weekId,
+    weekNum,
+    weekLabel: `Uge ${weekNum} \u00B7 ${dateRange}`,
+    dateRange,
+    episodes: perEpisode,
+    scoreboard,
+    highlights: {
+      biggestPayout,
+      biggestWhiff,
+      eliminationCallText,
+      hotStreak: hotStreak?.count >= 2 ? hotStreak : null,
+      mostPlayedEvent: mostPlayed?.count >= 2 ? mostPlayed : null,
+    },
+    eliminations,
+    seasonStandings,
+    nextWeek: { airDates: nextWeekDates, contestantsRemaining: runningGuys.length },
+  };
+}
+
+function shouldAutoLock(ep, now) {
+  return ep.betsLockDeadline && !ep.betsLocked && !ep.closed && now >= ep.betsLockDeadline;
+}
+
+let toastTimer = null;
+function showToast(msg) {
+  let el = document.getElementById("app-toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "app-toast";
+    el.className = "app-toast";
+    document.body.append(el);
+  }
+  el.textContent = msg;
+  el.classList.add("app-toast--visible");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("app-toast--visible"), 4000);
+}
+
 function ensureEpisodeMaps(epId) {
+  if (!state.bets || typeof state.bets !== "object") state.bets = {};
+  if (!state.occurred || typeof state.occurred !== "object") state.occurred = {};
+  if (!state.eliminationBets || typeof state.eliminationBets !== "object") state.eliminationBets = {};
   if (!state.bets[epId]) state.bets[epId] = {};
   for (let i = 0; i < PLAYER_COUNT; i++) {
     if (!Array.isArray(state.bets[epId][i])) state.bets[epId][i] = [];
@@ -381,9 +835,41 @@ function eliminationOdds(ep) {
   return Math.round(Math.max(1.5, n / 2) * 10) / 10;
 }
 
+const PHASE_MULTIPLIERS = {
+  "early-heavy": { early: 0.7, mid: 1.2, late: 1.8 },
+  "late-heavy":  { early: 1.8, mid: 1.2, late: 0.7 },
+  "mid-peak":    { early: 1.3, mid: 0.8, late: 1.3 },
+  "any":         { early: 1.0, mid: 1.0, late: 1.0 },
+};
+
+const PHASE_OPTIONS = ["any", "early-heavy", "mid-peak", "late-heavy"];
+
+function getEpisodePhase(episodeIndex, totalEpisodes) {
+  const horizon = Math.max(totalEpisodes, EXPECTED_SEASON_LENGTH);
+  if (horizon <= 1) return "early";
+  const progress = episodeIndex / (horizon - 1);
+  if (progress < 0.33) return "early";
+  if (progress < 0.67) return "mid";
+  return "late";
+}
+
+function getPhaseMultiplier(eventPhase, episodePhase) {
+  const table = PHASE_MULTIPLIERS[eventPhase || "any"] || PHASE_MULTIPLIERS["any"];
+  return table[episodePhase] ?? 1.0;
+}
+
+function computePhaseAdjustedOdds(baseOdds, eventPhase, episodeIndex, totalEpisodes) {
+  const epPhase = getEpisodePhase(episodeIndex, totalEpisodes);
+  const mult = getPhaseMultiplier(eventPhase, epPhase);
+  const raw = Math.round(baseOdds * mult * 10) / 10;
+  return Math.min(25, Math.max(1.3, raw));
+}
+
 function episodePoints(ep) {
   ensureEpisodeMaps(ep.id);
   ensureEliminatedArray(ep);
+  if (!Array.isArray(ep.events)) ep.events = [];
+  if (!Array.isArray(ep.guys)) ep.guys = [];
   const occurred = new Set(state.occurred[ep.id]);
   const elimSet = new Set(ep.eliminated);
   const elimOdds = eliminationOdds(ep);
@@ -414,37 +900,129 @@ function totalPointsAllEpisodes() {
   return totals;
 }
 
+const STREAK_MILESTONES = [
+  { at: 3, bonus: 2 },
+  { at: 5, bonus: 5 },
+  { at: 7, bonus: 10 },
+  { at: 10, bonus: 20 },
+];
+
+function computePlayerStreaks() {
+  const result = [];
+  for (let p = 0; p < PLAYER_COUNT; p++) {
+    let streak = 0;
+    let longest = 0;
+    let totalBonus = 0;
+    const milestonesReached = [];
+    const episodeBreakdown = [];
+    const milestonesAwarded = new Set();
+
+    for (const ep of state.episodes) {
+      if (!isEpisodeClosed(ep)) {
+        episodeBreakdown.push({ episodeId: ep.id, result: "open", streakAfter: streak });
+        continue;
+      }
+      ensureEpisodeMaps(ep.id);
+      const picks = (state.bets[ep.id][p] || []).filter(Boolean);
+      if (picks.length === 0) {
+        episodeBreakdown.push({ episodeId: ep.id, result: "skip", streakAfter: streak });
+        continue;
+      }
+      const occurred = new Set(state.occurred[ep.id] || []);
+      const hasHit = picks.some((id) => occurred.has(id));
+      if (hasHit) {
+        streak++;
+        if (streak > longest) longest = streak;
+        let epBonus = 0;
+        for (const m of STREAK_MILESTONES) {
+          if (streak >= m.at && !milestonesAwarded.has(m.at)) {
+            milestonesAwarded.add(m.at);
+            milestonesReached.push(m.at);
+            epBonus += m.bonus;
+            totalBonus += m.bonus;
+          }
+        }
+        episodeBreakdown.push({ episodeId: ep.id, result: "hit", streakAfter: streak, bonus: epBonus });
+      } else {
+        streak = 0;
+        milestonesAwarded.clear();
+        episodeBreakdown.push({ episodeId: ep.id, result: "miss", streakAfter: 0 });
+      }
+    }
+    result.push({
+      currentStreak: streak,
+      longestStreak: longest,
+      bonusPointsEarned: totalBonus,
+      milestonesReached,
+      episodeBreakdown,
+    });
+  }
+  return result;
+}
+
+let cachedStreaks = null;
+let cachedStreaksKey = "";
+
+function getStreaks() {
+  const key = JSON.stringify(state.episodes.map((e) => e.id + ":" + (e.closed ? "c" : "o")))
+    + JSON.stringify(state.bets) + JSON.stringify(state.occurred);
+  if (cachedStreaksKey === key && cachedStreaks) return cachedStreaks;
+  cachedStreaks = computePlayerStreaks();
+  cachedStreaksKey = key;
+  return cachedStreaks;
+}
+
 function updateViewVisibility() {
   const viewOverview = document.getElementById("view-overview");
   const viewCast = document.getElementById("view-cast");
   const viewEventBank = document.getElementById("view-event-bank");
+  const viewSeasonBets = document.getElementById("view-season-bets");
+  const viewWeeklyRecap = document.getElementById("view-weekly-recap");
   const episodeMain = document.getElementById("episode-workspace");
   const extras = document.getElementById("episode-extras");
   const onOverview = state.activeTab === OVERVIEW;
   const onCast = state.activeTab === CAST;
   const onEventBank = state.activeTab === EVENT_BANK;
-  const onEpisode = !onOverview && !onCast && !onEventBank;
+  const onSeasonBets = state.activeTab === SEASON_BETS;
+  const onWeeklyRecap = state.activeTab === WEEKLY_RECAP;
+  const onEpisode = !onOverview && !onCast && !onEventBank && !onSeasonBets && !onWeeklyRecap;
   if (viewOverview) viewOverview.hidden = !onOverview;
   if (viewCast) viewCast.hidden = !onCast;
   if (viewEventBank) viewEventBank.hidden = !onEventBank;
-  if (episodeMain) episodeMain.hidden = !onEpisode;
+  if (viewSeasonBets) viewSeasonBets.hidden = !onSeasonBets;
+  if (viewWeeklyRecap) viewWeeklyRecap.hidden = !onWeeklyRecap;
+  if (episodeMain) {
+    episodeMain.hidden = !onEpisode;
+    if (onEpisode) {
+      const ep = activeEpisode();
+      episodeMain.classList.toggle("episode--closed", ep ? isEpisodeClosed(ep) : false);
+    }
+  }
   if (extras) extras.hidden = !onEpisode;
   const closeBtn = document.getElementById("close-episode");
   const reopenBtn = document.getElementById("reopen-episode");
+  const lockBetsBtn = document.getElementById("lock-bets");
+  const unlockBetsBtn = document.getElementById("unlock-bets");
   if (onEpisode) {
     const ep = activeEpisode();
     const closed = ep ? isEpisodeClosed(ep) : false;
+    const betsLocked = ep ? ep.betsLocked === true : false;
     if (closeBtn) closeBtn.hidden = closed;
     if (reopenBtn) reopenBtn.hidden = !closed;
+    if (lockBetsBtn) lockBetsBtn.hidden = closed || betsLocked;
+    if (unlockBetsBtn) unlockBetsBtn.hidden = closed || !betsLocked;
   } else {
     if (closeBtn) closeBtn.hidden = true;
     if (reopenBtn) reopenBtn.hidden = true;
+    if (lockBetsBtn) lockBetsBtn.hidden = true;
+    if (unlockBetsBtn) unlockBetsBtn.hidden = true;
   }
 }
 
 function renderOverview() {
   const root = document.getElementById("cast-grid");
   if (!root) return;
+  if (activeNoteEditor) return;
   root.innerHTML = "";
   CAST_BA4_2026.forEach((c) => {
     const card = document.createElement("article");
@@ -454,7 +1032,7 @@ function renderOverview() {
     const img = document.createElement("img");
     img.className = "cast-card__photo";
     img.src = c.photo;
-    img.alt = `Portrætfoto — ${c.name}`;
+    img.alt = `Portr\u00E6tfoto \u2014 ${c.name}`;
     img.loading = "lazy";
     img.decoding = "async";
     img.width = 480;
@@ -467,15 +1045,187 @@ function renderOverview() {
     h.textContent = c.name;
     const meta = document.createElement("p");
     meta.className = "cast-card__meta";
-    meta.textContent = `${c.age} år`;
+    meta.textContent = `${c.age} \u00E5r`;
     const job = document.createElement("p");
     job.className = "cast-card__job";
     job.textContent = c.occupation;
     body.append(h, meta, job);
+
+    const noteData = state.contestantNotes[c.name];
+    const noteWrap = document.createElement("div");
+    noteWrap.className = "cast-note";
+    noteWrap.dataset.name = c.name;
+
+    const saving = document.createElement("span");
+    saving.className = "cast-note__saving";
+
+    if (!noteData?.text) {
+      const addLink = document.createElement("button");
+      addLink.type = "button";
+      addLink.className = "cast-note__add";
+      addLink.textContent = "+ noter\u2026";
+      addLink.addEventListener("click", () => expandNote(noteWrap, c.name));
+      noteWrap.append(addLink, saving);
+    } else {
+      const preview = document.createElement("div");
+      preview.className = "cast-note__preview";
+      const previewText = document.createElement("span");
+      previewText.className = "cast-note__preview-text";
+      previewText.textContent = noteData.text.length > 80 ? noteData.text.slice(0, 80) + "\u2026" : noteData.text;
+      preview.append(previewText);
+      if (noteData.lastEditedBy) {
+        const metaLine = document.createElement("span");
+        metaLine.className = "cast-note__meta";
+        metaLine.textContent = noteData.lastEditedBy;
+        preview.append(metaLine);
+      }
+      preview.addEventListener("click", () => expandNote(noteWrap, c.name));
+      noteWrap.append(preview, saving);
+    }
+    body.append(noteWrap);
+
     card.append(fig, body);
     root.append(card);
   });
 }
+
+let activeNoteEditor = null;
+
+function expandNote(noteWrap, contestantName, playerConfirmed) {
+  if (!playerConfirmed) {
+    promptPlayerPicker(() => expandNote(noteWrap, contestantName, true));
+    return;
+  }
+  if (noteWrap.querySelector(".cast-note__editor")) return;
+
+  const noteData = state.contestantNotes[contestantName];
+  noteWrap.innerHTML = "";
+  activeNoteEditor = contestantName;
+
+  const editor = document.createElement("div");
+  editor.className = "cast-note__editor";
+
+  const playerBar = document.createElement("div");
+  playerBar.className = "cast-note__player-bar";
+  const playerLabel = document.createElement("span");
+  playerLabel.className = "cast-note__player-label";
+  playerLabel.textContent = `Skriver som: ${currentPlayer}`;
+  const changeBtn = document.createElement("button");
+  changeBtn.type = "button";
+  changeBtn.className = "cast-note__change-player";
+  changeBtn.textContent = "skift";
+  changeBtn.addEventListener("click", () => {
+    promptPlayerPicker(() => {
+      playerLabel.textContent = `Skriver som: ${currentPlayer}`;
+    });
+  });
+  playerBar.append(playerLabel, changeBtn);
+
+  const ta = document.createElement("textarea");
+  ta.className = "cast-note__textarea";
+  ta.placeholder = "Skriv noter om denne bejler\u2026";
+  ta.maxLength = 1000;
+  ta.value = noteData?.text || "";
+  ta.rows = 3;
+  autoResizeTextarea(ta);
+
+  const counter = document.createElement("span");
+  counter.className = "cast-note__counter";
+  const updateCounter = () => {
+    const len = ta.value.length;
+    counter.textContent = len > 400 ? `${len}/1000` : "";
+    counter.classList.toggle("cast-note__counter--warn", len > 900);
+  };
+  updateCounter();
+
+  const saving = document.createElement("span");
+  saving.className = "cast-note__saving";
+
+  ta.addEventListener("input", () => {
+    autoResizeTextarea(ta);
+    updateCounter();
+    saving.textContent = "gemmer\u2026";
+    saving.classList.add("cast-note__saving--visible");
+    saveNoteDebounced(contestantName, ta.value, 2000);
+  });
+
+  ta.addEventListener("blur", (e) => {
+    if (e.relatedTarget && editor.contains(e.relatedTarget)) return;
+    if (document.querySelector(".player-picker-modal")) return;
+    clearTimeout(noteSaveTimers[contestantName]);
+    const trimmed = ta.value.trim();
+    if (!trimmed) {
+      delete state.contestantNotes[contestantName];
+    } else {
+      const prev = state.contestantNotes[contestantName]?.text;
+      if (!noteEditHistory[contestantName]) noteEditHistory[contestantName] = [];
+      if (prev && prev !== trimmed) {
+        noteEditHistory[contestantName].unshift(prev);
+        if (noteEditHistory[contestantName].length > 3) noteEditHistory[contestantName].length = 3;
+      }
+      state.contestantNotes[contestantName] = {
+        text: trimmed.slice(0, 1000),
+        lastEditedBy: currentPlayer || "?",
+      };
+    }
+    activeNoteEditor = null;
+    saveState();
+    setTimeout(() => renderOverview(), 100);
+  });
+
+  editor.append(playerBar, ta, counter, saving);
+
+  const history = noteEditHistory[contestantName];
+  if (history?.length) {
+    const histBlock = document.createElement("div");
+    histBlock.className = "cast-note__history";
+    for (const old of history) {
+      const line = document.createElement("p");
+      line.className = "cast-note__history-line";
+      line.textContent = old.length > 60 ? old.slice(0, 60) + "\u2026" : old;
+      histBlock.append(line);
+    }
+    editor.append(histBlock);
+  }
+
+  noteWrap.append(editor);
+  ta.focus();
+}
+
+function autoResizeTextarea(ta) {
+  ta.style.height = "auto";
+  ta.style.height = Math.min(200, Math.max(60, ta.scrollHeight)) + "px";
+}
+
+function promptPlayerPicker(callback) {
+  const existing = document.querySelector(".player-picker-modal");
+  if (existing) existing.remove();
+  const overlay = document.createElement("div");
+  overlay.className = "player-picker-modal";
+  const box = document.createElement("div");
+  box.className = "player-picker-modal__box";
+  const title = document.createElement("p");
+  title.className = "player-picker-modal__title";
+  title.textContent = "Hvem er du?";
+  box.append(title);
+  for (const name of PLAYER_NAMES) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn--secondary player-picker-modal__btn"
+      + (name === currentPlayer ? " player-picker-modal__btn--active" : "");
+    btn.textContent = name;
+    btn.addEventListener("click", () => {
+      setCurrentPlayer(name);
+      overlay.remove();
+      if (callback) callback();
+    });
+    box.append(btn);
+  }
+  overlay.append(box);
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.append(overlay);
+}
+
 
 function populateMasterEventDatalist() {
   const dl = document.getElementById("master-event-suggestions");
@@ -494,15 +1244,21 @@ function bankFilterQuery() {
 }
 
 
-function addMasterEventToEpisode(epId, text, odds) {
+function addMasterEventToEpisode(epId, text, odds, eventPhase) {
   const ep = getEpisode(epId);
   if (!ep) return false;
+  if (!Array.isArray(ep.events)) ep.events = [];
   const t = text.trim();
   if (ep.events.some((e) => e.text.trim() === t)) {
     alert("That episode already has this event.");
     return false;
   }
-  ep.events.push({ id: uid(), text: t, odds: Number(odds) || 2 });
+  const epIdx = state.episodes.indexOf(ep);
+  const total = state.episodes.length;
+  const phase = eventPhase || "any";
+  const baseOdds = Number(odds) || 2;
+  const adjusted = phase === "any" ? baseOdds : computePhaseAdjustedOdds(baseOdds, phase, epIdx, total);
+  ep.events.push({ id: uid(), text: t, odds: adjusted });
   saveState();
   if (state.activeTab === ep.id) {
     renderEvents();
@@ -517,6 +1273,39 @@ function addMasterEventToEpisode(epId, text, odds) {
 function bankCategoryFilter() {
   const el = document.getElementById("bank-category-filter");
   return (el?.value ?? "");
+}
+
+function showPhaseDropdown(badgeEl, currentPhase, isCustom, text, _origText) {
+  const existing = document.querySelector(".phase-dropdown");
+  if (existing) existing.remove();
+  const dd = document.createElement("div");
+  dd.className = "phase-dropdown";
+  for (const opt of PHASE_OPTIONS) {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "phase-dropdown__item" + (opt === currentPhase ? " phase-dropdown__item--active" : "");
+    item.textContent = opt === "any" ? "any" : opt.replace("-heavy", "").replace("-peak", "");
+    item.addEventListener("click", () => {
+      if (isCustom) {
+        const entry = state.customBankEvents.find((e) => e.text === text);
+        if (entry) entry.phase = opt;
+      } else if (_origText) {
+        if (opt === (builtInBetEvents().find((e) => e.text === _origText)?.phase || "any")) {
+          delete state.bankPhaseOverrides[_origText];
+        } else {
+          state.bankPhaseOverrides[_origText] = opt;
+        }
+      }
+      saveState();
+      dd.remove();
+      renderEventBank();
+    });
+    dd.append(item);
+  }
+  badgeEl.style.position = "relative";
+  badgeEl.append(dd);
+  const dismiss = (e) => { if (!dd.contains(e.target) && e.target !== badgeEl) { dd.remove(); document.removeEventListener("click", dismiss, true); } };
+  setTimeout(() => document.addEventListener("click", dismiss, true), 0);
 }
 
 function renderEventBank() {
@@ -544,31 +1333,29 @@ function renderEventBank() {
 
   if (catFilter) {
     const prevCat = catFilter.value;
-    const hadOptions = catFilter.options.length > 1;
-    if (!hadOptions) {
-      catFilter.innerHTML = "";
-      const all = document.createElement("option");
-      all.value = "";
-      all.textContent = "All categories";
-      catFilter.append(all);
-      betCategories().forEach((c) => {
-        const o = document.createElement("option");
-        o.value = c.id;
-        o.textContent = c.label;
-        catFilter.append(o);
-      });
-      const customOpt = document.createElement("option");
-      customOpt.value = "_custom";
-      customOpt.textContent = "Custom bets";
-      catFilter.append(customOpt);
-    }
+    catFilter.innerHTML = "";
+    const all = document.createElement("option");
+    all.value = "";
+    all.textContent = "All categories";
+    catFilter.append(all);
+    betCategories().forEach((c) => {
+      const o = document.createElement("option");
+      o.value = c.id;
+      o.textContent = c.label;
+      catFilter.append(o);
+    });
+    const customOpt = document.createElement("option");
+    customOpt.value = "_custom";
+    customOpt.textContent = "Custom bets";
+    catFilter.append(customOpt);
     if (prevCat) catFilter.value = prevCat;
   }
 
-  list.innerHTML = "";
+  try { list.innerHTML = ""; } catch (_) {}
   const q = bankFilterQuery();
   const catVal = bankCategoryFilter();
-  const allRows = masterBetEvents();
+  let allRows;
+  try { allRows = masterBetEvents(); } catch (e) { console.error("masterBetEvents failed:", e); allRows = []; }
   let filtered = allRows;
   if (q) filtered = filtered.filter(({ text }) => text.toLowerCase().includes(q));
   if (catVal) {
@@ -614,10 +1401,41 @@ function renderEventBank() {
     });
     header.setAttribute("aria-expanded", "true");
 
-    items.forEach(({ text, odds, category, _origText }) => {
+    items.forEach(({ text, odds, category, phase, _origText }) => {
       const isCustom = !category || category === "_custom";
+      const evPhase = phase || "any";
       const row = document.createElement("div");
       row.className = "event-bank-row";
+
+      const leftCol = document.createElement("div");
+      leftCol.className = "event-bank-row__left";
+
+      const topLine = document.createElement("div");
+      topLine.className = "event-bank-row__top-line";
+
+      if (evPhase !== "any") {
+        const phaseBadge = document.createElement("button");
+        phaseBadge.type = "button";
+        phaseBadge.className = "phase-badge phase-badge--" + evPhase;
+        phaseBadge.textContent = evPhase.replace("-heavy", "").replace("-peak", "");
+        phaseBadge.title = "Click to change phase";
+        phaseBadge.addEventListener("click", (e) => {
+          e.stopPropagation();
+          showPhaseDropdown(phaseBadge, evPhase, isCustom, text, _origText);
+        });
+        topLine.append(phaseBadge);
+      } else {
+        const phaseBadge = document.createElement("button");
+        phaseBadge.type = "button";
+        phaseBadge.className = "phase-badge phase-badge--any";
+        phaseBadge.textContent = "any";
+        phaseBadge.title = "Click to set phase";
+        phaseBadge.addEventListener("click", (e) => {
+          e.stopPropagation();
+          showPhaseDropdown(phaseBadge, "any", isCustom, text, _origText);
+        });
+        topLine.append(phaseBadge);
+      }
 
       const textEl = document.createElement("p");
       textEl.className = "event-bank-row__text event-bank-row__text--editable";
@@ -652,10 +1470,12 @@ function renderEventBank() {
           if (e.key === "Escape") { textEl.hidden = false; input.remove(); }
         });
         textEl.hidden = true;
-        row.insertBefore(input, textEl.nextSibling);
+        topLine.insertBefore(input, textEl.nextSibling);
         input.focus();
         input.select();
       });
+      topLine.append(textEl);
+      leftCol.append(topLine);
 
       const meta = document.createElement("div");
       meta.className = "event-bank-row__meta";
@@ -666,7 +1486,25 @@ function renderEventBank() {
       oddsInput.max = "99";
       oddsInput.step = "0.1";
       oddsInput.value = Number(odds).toFixed(1);
-      oddsInput.title = "Adjust odds";
+      oddsInput.title = "Adjust base odds";
+
+      const previewEl = document.createElement("span");
+      previewEl.className = "event-bank-row__phase-preview";
+      const updatePreview = () => {
+        const epId = targetSel.value;
+        if (!epId || evPhase === "any") { previewEl.textContent = ""; return; }
+        const ep = getEpisode(epId);
+        if (!ep) { previewEl.textContent = ""; return; }
+        const epIdx = state.episodes.indexOf(ep);
+        const total = state.episodes.length;
+        const epPh = getEpisodePhase(epIdx, total);
+        const mult = getPhaseMultiplier(evPhase, epPh);
+        const base = Number.parseFloat(oddsInput.value) || Number(odds);
+        const adj = computePhaseAdjustedOdds(base, evPhase, epIdx, total);
+        previewEl.textContent = `Will add at ${adj.toFixed(1)}\u00D7 (base ${base.toFixed(1)} \u00D7 ${mult.toFixed(1)} ${epPh} phase)`;
+      };
+      leftCol.append(previewEl);
+
       oddsInput.addEventListener("change", () => {
         let v = Number.parseFloat(oddsInput.value);
         if (Number.isNaN(v) || v < 1.1) { oddsInput.value = Number(odds).toFixed(1); return; }
@@ -678,6 +1516,7 @@ function renderEventBank() {
         }
         oddsInput.value = v.toFixed(1);
         saveState();
+        updatePreview();
       });
       const timesLabel = document.createElement("span");
       timesLabel.className = "event-bank-row__times";
@@ -694,7 +1533,7 @@ function renderEventBank() {
         }
         let customOdds = Number.parseFloat(oddsInput.value);
         if (Number.isNaN(customOdds) || customOdds < 1.1) customOdds = Number(odds);
-        addMasterEventToEpisode(epId, text, customOdds);
+        addMasterEventToEpisode(epId, text, customOdds, evPhase);
       });
 
       const rm = document.createElement("button");
@@ -710,14 +1549,17 @@ function renderEventBank() {
           state.hiddenBankEvents.push(_origText);
           delete state.bankOddsOverrides[_origText];
           delete state.bankTextOverrides[_origText];
+          delete state.bankPhaseOverrides[_origText];
         }
         saveState();
         populateMasterEventDatalist();
         renderEventBank();
       });
       meta.append(oddsInput, timesLabel, btn, rm);
-      row.append(textEl, meta);
+      row.append(leftCol, meta);
       body.append(row);
+
+      updatePreview();
     });
 
     body.hidden = false;
@@ -734,8 +1576,10 @@ function renderMainTabs() {
 
   const pages = [
     { id: OVERVIEW, label: "Overview" },
+    { id: WEEKLY_RECAP, label: "Ugens recap" },
     { id: CAST, label: "Bejlere" },
     { id: EVENT_BANK, label: "Bet bank" },
+    { id: SEASON_BETS, label: "Season bets" },
   ];
   pages.forEach(({ id, label }) => {
     const btn = document.createElement("button");
@@ -751,6 +1595,8 @@ function renderMainTabs() {
       updateViewVisibility();
       if (id === OVERVIEW) renderLeaderboard();
       if (id === EVENT_BANK) renderEventBank();
+      if (id === SEASON_BETS) renderSeasonBets();
+      if (id === WEEKLY_RECAP) renderWeeklyRecap();
     });
     root.append(btn);
   });
@@ -762,20 +1608,23 @@ function renderMainTabs() {
 
     const select = document.createElement("select");
     select.className = "tab-episode-select" + (isOnEpisode ? " tab-episode-select--active" : "");
-    const placeholder = document.createElement("option");
-    placeholder.value = "";
-    placeholder.textContent = isOnEpisode ? "" : "Episodes…";
-    placeholder.disabled = true;
-    if (!isOnEpisode) placeholder.selected = true;
-    select.append(placeholder);
+    if (!isOnEpisode) {
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "Episodes\u2026";
+      placeholder.disabled = true;
+      placeholder.selected = true;
+      select.append(placeholder);
+    }
 
-    state.episodes.forEach((ep, idx) => {
+    for (let idx = state.episodes.length - 1; idx >= 0; idx--) {
+      const ep = state.episodes[idx];
       const opt = document.createElement("option");
       opt.value = ep.id;
-      opt.textContent = episodeTabLabel(idx) + (ep.closed ? " \u2713" : "");
+      opt.textContent = episodeTabLabel(idx) + (ep.closed ? " \u2713" : ep.betsLocked ? " \uD83D\uDD12" : "");
       if (ep.id === state.activeTab) opt.selected = true;
       select.append(opt);
-    });
+    }
 
     select.addEventListener("change", () => {
       if (!select.value) return;
@@ -802,6 +1651,7 @@ function renderGuys() {
   const root = document.getElementById("guys-grid");
   root.innerHTML = "";
   if (!ep) return;
+  if (!Array.isArray(ep.guys)) ep.guys = [];
   const closed = isEpisodeClosed(ep);
   if (!ep.guys.length) {
     const empty = document.createElement("p");
@@ -814,16 +1664,28 @@ function renderGuys() {
   ep.guys.forEach((g) => {
     const chip = document.createElement("div");
     chip.className = "guy-chip";
-    const ini = document.createElement("span");
-    ini.className = "guy-chip__initial";
-    ini.textContent = initials(g.name);
+    const photo = castPhotoByName(g.name);
+    if (photo) {
+      const img = document.createElement("img");
+      img.className = "guy-chip__photo";
+      img.src = photo;
+      img.alt = g.name;
+      img.loading = "lazy";
+      img.decoding = "async";
+      chip.append(img);
+    } else {
+      const ini = document.createElement("span");
+      ini.className = "guy-chip__initial";
+      ini.textContent = initials(g.name);
+      chip.append(ini);
+    }
     const name = document.createElement("span");
     name.textContent = g.name;
     if (!closed) {
       const remove = document.createElement("button");
       remove.type = "button";
       remove.setAttribute("aria-label", `Remove ${g.name}`);
-      remove.textContent = "×";
+      remove.textContent = "\u00D7";
       remove.addEventListener("click", () => {
         ep.guys = ep.guys.filter((x) => x.id !== g.id);
         saveState();
@@ -832,9 +1694,9 @@ function renderGuys() {
         renderEliminations();
         renderLeaderboard();
       });
-      chip.append(ini, name, remove);
+      chip.append(name, remove);
     } else {
-      chip.append(ini, name);
+      chip.append(name);
     }
     root.append(chip);
   });
@@ -845,7 +1707,9 @@ function renderEvents() {
   const root = document.getElementById("events-list");
   root.innerHTML = "";
   if (!ep) return;
+  if (!Array.isArray(ep.events)) ep.events = [];
   const closed = isEpisodeClosed(ep);
+  const frozen = isEpisodeBetsLocked(ep);
   if (!ep.events.length) {
     const empty = document.createElement("p");
     empty.className = "panel__hint";
@@ -869,7 +1733,7 @@ function renderEvents() {
     oddsInput.max = "99";
     oddsInput.step = "0.1";
     oddsInput.value = Number(ev.odds).toFixed(1);
-    if (closed) oddsInput.disabled = true;
+    if (frozen) oddsInput.disabled = true;
     oddsInput.addEventListener("change", () => {
       let v = Number.parseFloat(oddsInput.value);
       if (Number.isNaN(v) || v < 1.1) v = Number(ev.odds);
@@ -889,6 +1753,7 @@ function renderEvents() {
       rm.type = "button";
       rm.className = "event-row__remove";
       rm.textContent = "Remove";
+      if (frozen) rm.disabled = true;
       rm.addEventListener("click", () => {
         ep.events = ep.events.filter((x) => x.id !== ev.id);
         for (let i = 0; i < PLAYER_COUNT; i++) {
@@ -915,10 +1780,10 @@ function renderEvents() {
 function eventOptionsHtml(ep, selectedId, otherSelected) {
   const blocked = new Set(otherSelected.filter(Boolean));
   let html = '<option value="">— Pick an event —</option>';
-  for (const ev of ep.events) {
+  for (const ev of (ep.events || [])) {
     if (ev.id !== selectedId && blocked.has(ev.id)) continue;
     const sel = ev.id === selectedId ? " selected" : "";
-    html += `<option value="${ev.id}"${sel}>${escapeHtml(ev.text)} (${Number(ev.odds).toFixed(1)}×)</option>`;
+    html += `<option value="${ev.id}"${sel}>(${Number(ev.odds).toFixed(1)}×) ${escapeHtml(ev.text)}</option>`;
   }
   return html;
 }
@@ -935,11 +1800,11 @@ function renderBets() {
   root.innerHTML = "";
   if (!ep) return;
   ensureEpisodeMaps(ep.id);
-  const closed = isEpisodeClosed(ep);
+  const frozen = isEpisodeBetsLocked(ep);
 
   for (let p = 0; p < PLAYER_COUNT; p++) {
     const card = document.createElement("div");
-    card.className = "bet-card";
+    card.className = "bet-card" + (frozen ? " bet-card--locked" : "");
     const h = document.createElement("h3");
     h.className = "bet-card__name";
     h.textContent = PLAYER_NAMES[p];
@@ -959,7 +1824,7 @@ function renderBets() {
       const others = picks.filter((_, i) => i !== slot);
       select.innerHTML = eventOptionsHtml(ep, picks[slot] || "", others);
       select.value = picks[slot] || "";
-      if (closed) select.disabled = true;
+      if (frozen) select.disabled = true;
       select.addEventListener("change", () => {
         ensureEpisodeMaps(ep.id);
         const next = [...(state.bets[ep.id][p] || [])];
@@ -1003,6 +1868,7 @@ function renderResults() {
   const root = document.getElementById("results-list");
   root.innerHTML = "";
   if (!ep) return;
+  if (!Array.isArray(ep.events)) ep.events = [];
   ensureEpisodeMaps(ep.id);
   const closed = isEpisodeClosed(ep);
   const occurred = new Set(state.occurred[ep.id] || []);
@@ -1053,8 +1919,9 @@ function renderEliminationBets() {
   if (!root) return;
   root.innerHTML = "";
   if (!ep) return;
+  if (!Array.isArray(ep.guys)) ep.guys = [];
   ensureEpisodeMaps(ep.id);
-  const closed = isEpisodeClosed(ep);
+  const frozen = isEpisodeBetsLocked(ep);
 
   if (!ep.guys.length) {
     const p = document.createElement("p");
@@ -1067,7 +1934,7 @@ function renderEliminationBets() {
 
   const odds = eliminationOdds(ep);
   const oddsNote = document.getElementById("elim-odds-note");
-  if (oddsNote) oddsNote.textContent = `(${odds.toFixed(1)}× if correct — scales with number of guys)`;
+  if (oddsNote) oddsNote.textContent = `(${odds.toFixed(1)}\u00D7 if correct \u2014 scales with number of guys)`;
 
   for (let p = 0; p < PLAYER_COUNT; p++) {
     const card = document.createElement("div");
@@ -1085,7 +1952,7 @@ function renderEliminationBets() {
     }
     select.innerHTML = html;
     select.value = current;
-    if (closed) select.disabled = true;
+    if (frozen) select.disabled = true;
     select.addEventListener("change", () => {
       ensureEpisodeMaps(ep.id);
       state.eliminationBets[ep.id][p] = select.value;
@@ -1104,6 +1971,7 @@ function renderEliminations() {
   if (!root) return;
   root.innerHTML = "";
   if (!ep) return;
+  if (!Array.isArray(ep.guys)) ep.guys = [];
   ensureEliminatedArray(ep);
   const closed = isEpisodeClosed(ep);
 
@@ -1176,10 +2044,22 @@ function renderEpisodeScoreSummary() {
     return;
   }
   const pts = episodePoints(ep);
+  const streaks = getStreaks();
+  const lines = [];
   const parts = PLAYER_NAMES.map((name, i) => {
-    return `<strong>${escapeHtml(name)}</strong>: ${pts[i].toFixed(2)} pts`;
+    const bd = streaks[i]?.episodeBreakdown?.find((b) => b.episodeId === ep.id);
+    let extra = "";
+    if (bd?.bonus > 0) {
+      extra = ` <span class="streak-bonus-tag">\uD83D\uDD25 +${bd.bonus} streak</span>`;
+      lines.push(`${escapeHtml(name)}: ${bd.streakAfter}-episode streak \u2192 +${bd.bonus} pts`);
+    }
+    return `<strong>${escapeHtml(name)}</strong>: ${pts[i].toFixed(2)} pts${extra}`;
   });
-  el.innerHTML = `This episode: ${parts.join(" · ")}`;
+  let html = `This episode: ${parts.join(" \u00B7 ")}`;
+  if (lines.length) {
+    html += `<br><span class="streak-summary">${lines.join(" \u00B7 ")}</span>`;
+  }
+  el.innerHTML = html;
   el.hidden = false;
 }
 
@@ -1197,7 +2077,7 @@ function getEventOccurrenceCounts() {
   const counts = new Map();
   for (const ep of state.episodes) {
     const occurred = new Set(state.occurred[ep.id] || []);
-    for (const ev of ep.events) {
+    for (const ev of (ep.events || [])) {
       if (!occurred.has(ev.id)) continue;
       const key = ev.text.trim();
       counts.set(key, (counts.get(key) || 0) + 1);
@@ -1208,8 +2088,7 @@ function getEventOccurrenceCounts() {
 
 function renderOverviewPanels() {
   const runRoot = document.getElementById("overview-running-guys");
-  const evRoot = document.getElementById("overview-event-stats");
-  if (!runRoot || !evRoot) return;
+  if (!runRoot) return;
 
   runRoot.innerHTML = "";
   getRunningGuyNames().forEach((name) => {
@@ -1219,38 +2098,314 @@ function renderOverviewPanels() {
     runRoot.append(chip);
   });
 
-  evRoot.innerHTML = "";
-  const ranked = getEventOccurrenceCounts();
-  if (!ranked.length) {
+  renderStreakLeaders();
+}
+
+function renderStreakLeaders() {
+  const root = document.getElementById("overview-streak-leaders");
+  if (!root) return;
+  root.innerHTML = "";
+  const streaks = getStreaks();
+  const sorted = PLAYER_NAMES
+    .map((name, i) => ({ name, i, currentStreak: 0, longestStreak: 0, bonusPointsEarned: 0, ...streaks[i] }))
+    .sort((a, b) => b.currentStreak - a.currentStreak || b.longestStreak - a.longestStreak);
+
+  const anyStreak = sorted.some((s) => s.currentStreak > 0 || s.longestStreak > 0);
+  if (!anyStreak) {
     const p = document.createElement("p");
     p.className = "panel__hint";
     p.style.margin = "0";
-    p.textContent =
-      "When you tick events that happened in each episode, they’ll rank here.";
-    evRoot.append(p);
-  } else {
-    const ul = document.createElement("ul");
-    ul.className = "overview-stats-list";
-    ranked.forEach(([text, n]) => {
-      const li = document.createElement("li");
-      li.className = "overview-stats-row";
+    p.textContent = "Close episodes with correct bets to build streaks.";
+    root.append(p);
+    return;
+  }
+
+  sorted.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "streak-leader-row";
+    const nameEl = document.createElement("span");
+    nameEl.className = "streak-leader-row__name";
+    nameEl.textContent = s.name;
+    const streakEl = document.createElement("span");
+    streakEl.className = "streak-leader-row__val";
+    if (s.currentStreak > 0) {
+      streakEl.textContent = `\uD83D\uDD25 ${s.currentStreak}`;
+      const nextM = STREAK_MILESTONES.find((m) => m.at > s.currentStreak);
+      if (nextM) {
+        const dist = document.createElement("span");
+        dist.className = "streak-leader-row__next";
+        dist.textContent = `${nextM.at - s.currentStreak} til +${nextM.bonus}`;
+        row.append(nameEl, streakEl, dist);
+      } else {
+        row.append(nameEl, streakEl);
+      }
+    } else {
+      streakEl.textContent = "\u2014";
+      row.append(nameEl, streakEl);
+    }
+    if (s.bonusPointsEarned > 0) {
+      const bonusEl = document.createElement("span");
+      bonusEl.className = "streak-leader-row__bonus";
+      bonusEl.textContent = `+${s.bonusPointsEarned}`;
+      row.append(bonusEl);
+    }
+    root.append(row);
+  });
+}
+
+/* ── Season bets helpers ── */
+
+function seasonBetPoints() {
+  const pts = PLAYER_NAMES.map(() => 0);
+  const res = state.seasonResults || {};
+  for (let p = 0; p < PLAYER_COUNT; p++) {
+    const picks = state.seasonBets?.[p] || {};
+    for (const cat of SEASON_BET_CATEGORIES) {
+      const pick = picks[cat.key];
+      const actual = res[cat.key];
+      if (pick && actual && pick === actual) {
+        if (cat.key === "darkHorse") {
+          if (isDarkHorseValid(actual)) pts[p] += cat.points;
+        } else {
+          pts[p] += cat.points;
+        }
+      }
+    }
+  }
+  return pts;
+}
+
+function isDarkHorseValid(name) {
+  for (const ep of state.episodes) {
+    ensureEliminatedArray(ep);
+    if ((ep.eliminated || []).includes(name)) {
+      const idx = state.episodes.indexOf(ep);
+      return idx >= 5;
+    }
+  }
+  return true;
+}
+
+function seasonBetMaxPoints() {
+  return SEASON_BET_CATEGORIES.reduce((sum, c) => sum + c.points, 0);
+}
+
+function castNames() {
+  return CAST_BA4_2026.map((c) => c.name);
+}
+
+function renderSeasonBets() {
+  const locked = !!state.seasonBetsLocked;
+  const names = castNames();
+
+  const lockBar = document.getElementById("season-bets-lock-bar");
+  if (lockBar) {
+    lockBar.innerHTML = "";
+    if (locked) {
+      const badge = document.createElement("span");
+      badge.className = "season-lock-badge season-lock-badge--locked";
+      badge.innerHTML = "&#128274; Season bets are locked";
+      lockBar.append(badge);
+    } else {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn--lock btn--season-lock";
+      btn.textContent = "Lock season bets";
+      btn.addEventListener("click", () => {
+        if (!confirm("Lock all season bets? This cannot be undone easily.")) return;
+        state.seasonBetsLocked = true;
+        saveState();
+        renderSeasonBets();
+      });
+      lockBar.append(btn);
+    }
+  }
+
+  const cardsRoot = document.getElementById("season-bets-cards");
+  if (cardsRoot) {
+    cardsRoot.innerHTML = "";
+    for (const cat of SEASON_BET_CATEGORIES) {
+      const card = document.createElement("div");
+      card.className = "season-card";
+
+      const header = document.createElement("div");
+      header.className = "season-card__header";
+      const title = document.createElement("span");
+      title.className = "season-card__title";
+      title.textContent = cat.label;
+      const badge = document.createElement("span");
+      badge.className = "season-card__pts";
+      badge.textContent = `${cat.points} pts`;
+      header.append(title, badge);
+
+      const desc = document.createElement("p");
+      desc.className = "season-card__desc";
+      desc.textContent = cat.desc;
+
+      card.append(header, desc);
+
+      const playersRow = document.createElement("div");
+      playersRow.className = "season-card__players";
+
+      for (let p = 0; p < PLAYER_COUNT; p++) {
+        const playerPick = document.createElement("div");
+        playerPick.className = "season-card__player";
+
+        const label = document.createElement("span");
+        label.className = "season-card__player-name";
+        label.textContent = PLAYER_NAMES[p];
+
+        const sel = document.createElement("select");
+        sel.className = "input season-card__select";
+        sel.disabled = locked;
+
+        const placeholder = document.createElement("option");
+        placeholder.value = "";
+        placeholder.textContent = "— Pick —";
+        sel.append(placeholder);
+
+        for (const n of names) {
+          const opt = document.createElement("option");
+          opt.value = n;
+          opt.textContent = n;
+          sel.append(opt);
+        }
+
+        const currentPick = state.seasonBets?.[p]?.[cat.key] || "";
+        sel.value = currentPick;
+
+        const result = state.seasonResults?.[cat.key];
+        const won = result && currentPick === result && (cat.key !== "darkHorse" || isDarkHorseValid(result));
+
+        if (won) {
+          const trophy = document.createElement("span");
+          trophy.className = "season-card__trophy";
+          trophy.textContent = "\uD83C\uDFC6";
+          playerPick.append(trophy);
+        }
+
+        sel.addEventListener("change", () => {
+          if (!state.seasonBets[p]) state.seasonBets[p] = {};
+          state.seasonBets[p][cat.key] = sel.value || null;
+          saveState();
+          renderSeasonBets();
+        });
+
+        playerPick.append(label, sel);
+        playersRow.append(playerPick);
+      }
+
+      card.append(playersRow);
+      cardsRoot.append(card);
+    }
+  }
+
+  const resultsGrid = document.getElementById("season-results-grid");
+  if (resultsGrid) {
+    resultsGrid.innerHTML = "";
+    for (const cat of SEASON_BET_CATEGORIES) {
+      const row = document.createElement("div");
+      row.className = "season-result-row";
+
       const label = document.createElement("span");
-      label.className = "overview-stats-text";
-      label.textContent = text;
-      const cnt = document.createElement("span");
-      cnt.className = "overview-stats-count";
-      cnt.textContent = `${n}×`;
-      li.append(label, cnt);
-      ul.append(li);
-    });
-    evRoot.append(ul);
+      label.className = "season-result-row__label";
+      label.textContent = cat.label;
+
+      const sel = document.createElement("select");
+      sel.className = "input season-result-row__select";
+
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "— Not resolved —";
+      sel.append(placeholder);
+
+      for (const n of names) {
+        const opt = document.createElement("option");
+        opt.value = n;
+        opt.textContent = n;
+        sel.append(opt);
+      }
+
+      sel.value = state.seasonResults?.[cat.key] || "";
+
+      sel.addEventListener("change", () => {
+        if (!state.seasonResults) state.seasonResults = {};
+        const val = sel.value || null;
+        if (cat.key === "darkHorse" && val && !isDarkHorseValid(val)) {
+          alert(`${val} was eliminated on or before episode 5 — not eligible as a dark horse pick.`);
+          sel.value = state.seasonResults[cat.key] || "";
+          return;
+        }
+        state.seasonResults[cat.key] = val;
+        saveState();
+        renderSeasonBets();
+        renderLeaderboard();
+      });
+
+      row.append(label, sel);
+      resultsGrid.append(row);
+    }
+  }
+
+  const summaryRoot = document.getElementById("season-points-summary");
+  if (summaryRoot) {
+    summaryRoot.innerHTML = "";
+    const pts = seasonBetPoints();
+    const maxPts = seasonBetMaxPoints();
+    const heading = document.createElement("h3");
+    heading.className = "overview-block__title panel__title";
+    heading.textContent = "Season bet scoreboard";
+    summaryRoot.append(heading);
+    for (let p = 0; p < PLAYER_COUNT; p++) {
+      const row = document.createElement("div");
+      row.className = "season-score-row";
+      const name = document.createElement("span");
+      name.className = "season-score-row__name";
+      name.textContent = PLAYER_NAMES[p];
+      const val = document.createElement("span");
+      val.className = "season-score-row__pts";
+      val.textContent = `${pts[p]} / ${maxPts} pts`;
+      row.append(name, val);
+      summaryRoot.append(row);
+    }
   }
 }
 
 function renderLeaderboard() {
-  const totals = totalPointsAllEpisodes();
+  const epTotals = totalPointsAllEpisodes();
+  const sPts = seasonBetPoints();
+  const streaks = getStreaks();
+  const totals = epTotals.map((v, i) => v + sPts[i] + (streaks[i]?.bonusPointsEarned || 0));
   const root = document.getElementById("leaderboard");
   root.innerHTML = "";
+
+  const latestOpen = [...state.episodes].reverse().find((ep) => !isEpisodeClosed(ep));
+  const statusEp = latestOpen || state.episodes[state.episodes.length - 1];
+  if (statusEp) ensureEpisodeMaps(statusEp.id);
+
+  const hint = document.getElementById("lb-bet-status-hint");
+  if (hint) {
+    if (statusEp) {
+      const epIdx = state.episodes.indexOf(statusEp);
+      hint.textContent = `Bet status for ${episodeTabLabel(epIdx)}${isEpisodeClosed(statusEp) ? " (closed)" : ""}`;
+      hint.hidden = false;
+    } else {
+      hint.hidden = true;
+    }
+  }
+
+  const elimCorrect = PLAYER_NAMES.map(() => 0);
+  for (const ep of state.episodes) {
+    ensureEpisodeMaps(ep.id);
+    ensureEliminatedArray(ep);
+    const elimSet = new Set(ep.eliminated);
+    for (let p = 0; p < PLAYER_COUNT; p++) {
+      const pick = state.eliminationBets[ep.id]?.[p];
+      if (pick && elimSet.has(pick)) elimCorrect[p]++;
+    }
+  }
+
+  const maxSeason = seasonBetMaxPoints();
   const order = totals
     .map((pts, i) => ({ i, pts }))
     .sort((a, b) => b.pts - a.pts);
@@ -1263,9 +2418,48 @@ function renderLeaderboard() {
     const val = document.createElement("span");
     val.className = "lb-row__pts";
     val.textContent = `${pts.toFixed(2)} pts`;
-    row.append(name, val);
+    const elim = document.createElement("span");
+    elim.className = "lb-row__elim";
+    elim.title = "Correct elimination guesses";
+    elim.textContent = `\uD83C\uDF39 ${elimCorrect[i]}`;
+    const seasonCol = document.createElement("span");
+    seasonCol.className = "lb-row__season";
+    seasonCol.title = "Season bet points (earned / max)";
+    seasonCol.textContent = `\uD83C\uDFC6 ${sPts[i]}/${maxSeason}`;
+
+    row.append(name, val, elim, seasonCol);
+
+    const st = streaks[i] || { currentStreak: 0, longestStreak: 0, bonusPointsEarned: 0 };
+    if (st.currentStreak > 0) {
+      const nextM = STREAK_MILESTONES.find((m) => m.at > st.currentStreak);
+      const fire = document.createElement("span");
+      fire.className = "lb-row__streak" + (st.currentStreak >= 3 ? " lb-row__streak--hot" : "");
+      fire.textContent = `\uD83D\uDD25 ${st.currentStreak}`;
+      fire.title = `${st.currentStreak} episode${st.currentStreak > 1 ? "r" : ""} i tr\u00E6k med korrekt bet` +
+        (nextM ? `. ${nextM.at - st.currentStreak} fra +${nextM.bonus} bonus.` : ". Max milestone n\u00E5et!");
+      row.append(fire);
+    }
+
+    if (statusEp) {
+      const picks = (state.bets[statusEp.id][i] || []).filter(Boolean);
+      const hasBets = picks.length > 0;
+      const badge = document.createElement("span");
+      badge.className = "lb-row__bet-status" + (hasBets ? " lb-row__bet-status--done" : " lb-row__bet-status--missing");
+      badge.textContent = hasBets ? "\u2713" : "No bets";
+      row.append(badge);
+    }
     root.append(row);
   });
+
+  const longestOverall = streaks.length ? Math.max(...streaks.map((s) => s?.longestStreak || 0)) : 0;
+  if (longestOverall > 0) {
+    const longestEl = document.createElement("p");
+    longestEl.className = "lb-longest-streak";
+    const who = PLAYER_NAMES.filter((_, i) => (streaks[i]?.longestStreak || 0) === longestOverall).join(", ");
+    longestEl.textContent = `Longest streak: ${longestOverall} (${who})`;
+    root.append(longestEl);
+  }
+
   renderOverviewPanels();
   renderAllBetsOverview();
 }
@@ -1327,7 +2521,7 @@ function renderAllBetsOverview() {
       betList.className = "ov-bets-list";
 
       for (const eventId of picks) {
-        const ev = ep.events.find((e) => e.id === eventId);
+        const ev = (ep.events || []).find((e) => e.id === eventId);
         if (!ev) continue;
         const row = document.createElement("div");
         row.className = "ov-bet-row";
@@ -1385,6 +2579,7 @@ function renderEpisodeContent() {
   const ep = activeEpisode();
   const workspace = document.getElementById("episode-workspace");
   const closed = ep ? isEpisodeClosed(ep) : false;
+  const betsLocked = ep ? isEpisodeBetsLocked(ep) : false;
   if (workspace) {
     workspace.classList.toggle("episode--closed", closed);
   }
@@ -1396,21 +2591,110 @@ function renderEpisodeContent() {
   const lockBanner = document.getElementById("episode-lock-banner");
   if (lockBanner) lockBanner.hidden = !closed;
 
+  const betsLockBanner = document.getElementById("bets-lock-banner");
+  const betsLockText = document.getElementById("bets-lock-banner-text");
+  if (betsLockBanner) {
+    const showBetsLock = ep?.betsLocked && !closed;
+    betsLockBanner.hidden = !showBetsLock;
+    if (showBetsLock && betsLockText) {
+      betsLockText.textContent = "Bets er l\u00E5st. Events og resultater kan stadig redigeres.";
+    }
+  }
+
+  const deadlineEl = document.getElementById("deadline-display");
+  if (deadlineEl && ep) {
+    if (ep.betsLockDeadline && !closed) {
+      deadlineEl.hidden = false;
+      renderDeadlineDisplay(deadlineEl, ep);
+    } else {
+      deadlineEl.hidden = true;
+    }
+  } else if (deadlineEl) {
+    deadlineEl.hidden = true;
+  }
+
   const closeBtn = document.getElementById("close-episode");
   const reopenBtn = document.getElementById("reopen-episode");
+  const lockBetsBtn = document.getElementById("lock-bets");
+  const unlockBetsBtn = document.getElementById("unlock-bets");
   if (closeBtn) closeBtn.hidden = closed;
   if (reopenBtn) reopenBtn.hidden = !closed;
+  if (lockBetsBtn) lockBetsBtn.hidden = closed || betsLocked;
+  if (unlockBetsBtn) unlockBetsBtn.hidden = closed || !ep?.betsLocked;
 
-  renderGuys();
-  renderEvents();
-  renderBets();
-  renderEliminationBets();
-  renderResults();
-  renderEliminations();
-  renderEpisodeScoreSummary();
+  const airDateBar = document.getElementById("episode-airdate-bar");
+  if (airDateBar && ep) {
+    airDateBar.hidden = closed;
+    airDateBar.innerHTML = "";
+    if (!closed) {
+      const label = document.createElement("span");
+      label.className = "episode-airdate-bar__label";
+      label.textContent = "Air date:";
+      const input = document.createElement("input");
+      input.type = "date";
+      input.className = "input input--narrow episode-airdate-bar__input";
+      input.value = ep.airDate || "";
+      input.addEventListener("change", () => {
+        ep.airDate = input.value || null;
+        ep.betsLockDeadline = ep.airDate ? copenhagenMidnight(ep.airDate) : null;
+        delete ep.hasElimination;
+        saveState();
+        renderEpisodeContent();
+        renderMainTabs();
+      });
+
+      const elimLabel = document.createElement("label");
+      elimLabel.className = "episode-airdate-bar__elim-toggle";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = isEliminationEpisode(ep);
+      cb.addEventListener("change", () => {
+        ep.hasElimination = cb.checked;
+        saveState();
+        renderEpisodeContent();
+      });
+      elimLabel.append(cb, document.createTextNode(" Roseceremoni"));
+      airDateBar.append(label, input, elimLabel);
+    }
+  } else if (airDateBar) {
+    airDateBar.hidden = true;
+  }
+
+  const hasElim = ep ? isEliminationEpisode(ep) : true;
+  const elimBetsSection = document.querySelector('#episode-workspace [aria-labelledby="elim-bets-heading"]');
+  const elimResultsSection = document.querySelector('#episode-workspace [aria-labelledby="elim-results-heading"]');
+  if (elimBetsSection) elimBetsSection.hidden = !hasElim;
+  if (elimResultsSection) elimResultsSection.hidden = !hasElim;
+
+  const safe = (fn, label) => { try { fn(); } catch (e) { console.error(label + ":", e); } };
+  safe(renderGuys, "renderGuys");
+  safe(renderEvents, "renderEvents");
+  safe(renderBets, "renderBets");
+  if (hasElim) safe(renderEliminationBets, "renderEliminationBets");
+  safe(renderResults, "renderResults");
+  safe(renderEliminations, "renderEliminations");
+  safe(renderEpisodeScoreSummary, "renderEpisodeScoreSummary");
+}
+
+function renderDeadlineDisplay(el, ep) {
+  const now = Date.now();
+  const dl = ep.betsLockDeadline;
+  if (ep.betsLocked) {
+    el.className = "deadline-display deadline-display--locked";
+    el.textContent = "\uD83D\uDD12 L\u00E5st" + (ep.betsLockedAt ? " \u00B7 " + formatDeadlineTime(ep.betsLockedAt) : "");
+  } else if (now >= dl) {
+    el.className = "deadline-display deadline-display--warn";
+    el.textContent = "\u23F3 Auto-l\u00E5ser nu\u2026";
+  } else {
+    const diff = dl - now;
+    const isWarn = diff < 6 * 3600000;
+    el.className = "deadline-display" + (isWarn ? " deadline-display--warn" : "");
+    el.textContent = "\u23F0 Bets l\u00E5ses " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
+  }
 }
 
 function guysAfterEliminations(ep) {
+  if (!Array.isArray(ep.guys)) ep.guys = [];
   ensureEliminatedArray(ep);
   const elimSet = new Set(ep.eliminated);
   return ep.guys.filter((g) => !elimSet.has(g.name));
@@ -1423,51 +2707,85 @@ function wireActions() {
   document.getElementById("bank-category-filter")?.addEventListener("change", () => {
     renderEventBank();
   });
+  document.getElementById("bank-target-episode")?.addEventListener("change", () => {
+    renderEventBank();
+  });
   document.getElementById("add-custom-bank-event")?.addEventListener("click", () => {
     const textEl = document.getElementById("custom-bank-text");
     const oddsEl = document.getElementById("custom-bank-odds");
     const catEl = document.getElementById("custom-bank-category");
+    const phaseEl = document.getElementById("custom-bank-phase");
     const text = (textEl?.value ?? "").trim();
     let odds = Number.parseFloat(oddsEl?.value);
     const category = catEl?.value || "_custom";
+    const phase = phaseEl?.value || "any";
     if (!text) { alert("Enter a bet description."); return; }
     if (Number.isNaN(odds) || odds < 1.1) odds = 2.0;
     const dupe = masterBetEvents().some((e) => e.text.trim().toLowerCase() === text.toLowerCase());
     if (dupe) { alert("That bet already exists in the bank."); return; }
-    state.customBankEvents.push({ text, odds, category });
+    state.customBankEvents.push({ text, odds, category, phase });
     saveState();
     textEl.value = "";
     oddsEl.value = "2.0";
+    if (phaseEl) phaseEl.value = "any";
     populateMasterEventDatalist();
     renderEventBank();
   });
 
-  document.getElementById("add-episode").addEventListener("click", () => {
+  const addEpToggle = document.getElementById("add-episode-toggle");
+  const addEpModal = document.getElementById("add-episode-modal");
+  const addEpAirdate = document.getElementById("new-ep-airdate");
+
+  addEpToggle?.addEventListener("click", () => {
+    addEpAirdate.value = suggestNextAirDate();
+    addEpModal.hidden = false;
+  });
+
+  document.getElementById("add-episode-cancel")?.addEventListener("click", () => {
+    addEpModal.hidden = true;
+  });
+
+  addEpModal?.addEventListener("click", (e) => {
+    if (e.target === addEpModal) addEpModal.hidden = true;
+  });
+
+  document.getElementById("add-episode")?.addEventListener("click", () => {
     const n = state.episodes.length + 1;
     const prevEp = state.episodes.length > 0 ? state.episodes[state.episodes.length - 1] : null;
     const carryGuys = prevEp ? guysAfterEliminations(prevEp).map((g) => ({ id: uid(), name: g.name })) : [];
+
+    const airDate = addEpAirdate?.value || null;
+    const betsLockDeadline = airDate ? copenhagenMidnight(airDate) : null;
+
     const newEp = {
       id: uid(),
       title: `Episode ${n}`,
       guys: carryGuys,
       events: [],
       eliminated: [],
+      betsLocked: false,
+      betsLockedAt: null,
+      betsLockDeadline,
+      airDate,
     };
     state.episodes.push(newEp);
     state.activeTab = newEp.id;
+    addEpModal.hidden = true;
     saveState();
-    renderMainTabs();
-    updateViewVisibility();
-    renderEpisodeContent();
-    renderLeaderboard();
-    renderEventBank();
+    const safe = (fn, label) => { try { fn(); } catch (e) { console.error(label + ":", e); } };
+    safe(renderMainTabs, "renderMainTabs");
+    safe(updateViewVisibility, "updateViewVisibility");
+    safe(renderEpisodeContent, "renderEpisodeContent");
+    safe(renderLeaderboard, "renderLeaderboard");
+    safe(renderEventBank, "renderEventBank");
   });
 
-  document.getElementById("add-guy").addEventListener("click", () => {
+  document.getElementById("add-guy")?.addEventListener("click", () => {
     const ep = activeEpisode();
     const input = document.getElementById("new-guy-name");
     const name = input.value.trim();
     if (!ep || !name) return;
+    if (!Array.isArray(ep.guys)) ep.guys = [];
     ep.guys.push({ id: uid(), name });
     input.value = "";
     saveState();
@@ -1484,25 +2802,28 @@ function wireActions() {
     const m = masterBetEvents().find((e) => e.text === t);
     if (m) newEventOdds.value = String(m.odds);
   }
-  newEventText.addEventListener("change", syncOddsFromBankIfMatch);
-  newEventText.addEventListener("input", syncOddsFromBankIfMatch);
+  newEventText?.addEventListener("change", syncOddsFromBankIfMatch);
+  newEventText?.addEventListener("input", syncOddsFromBankIfMatch);
 
-  document.getElementById("add-event").addEventListener("click", () => {
+  document.getElementById("add-event")?.addEventListener("click", () => {
     const ep = activeEpisode();
+    if (!ep || isEpisodeClosed(ep)) return;
     const textEl = document.getElementById("new-event-text");
     const oddsEl = document.getElementById("new-event-odds");
-    const text = textEl.value.trim();
-    let odds = Number.parseFloat(oddsEl.value);
-    if (!ep || !text) return;
+    const text = (textEl?.value || "").trim();
+    let odds = Number.parseFloat(oddsEl?.value);
+    if (!text) { showToast("Skriv en event-tekst f\u00F8rst."); return; }
     if (Number.isNaN(odds) || odds < 1.1) odds = 2.0;
+    if (!Array.isArray(ep.events)) ep.events = [];
     ep.events.push({ id: uid(), text, odds });
-    textEl.value = "";
+    if (textEl) textEl.value = "";
     saveState();
-    renderEvents();
-    renderBets();
-    renderResults();
-    renderEpisodeScoreSummary();
-    renderLeaderboard();
+    const safe = (fn, label) => { try { fn(); } catch (e) { console.error(label + ":", e); } };
+    safe(renderEvents, "renderEvents");
+    safe(renderBets, "renderBets");
+    safe(renderResults, "renderResults");
+    safe(renderEpisodeScoreSummary, "renderEpisodeScoreSummary");
+    safe(renderLeaderboard, "renderLeaderboard");
   });
 
   function handleReset() {
@@ -1522,15 +2843,43 @@ function wireActions() {
     renderLeaderboard();
     renderEventBank();
   }
-  document.getElementById("reset-data").addEventListener("click", handleReset);
+  document.getElementById("reset-data")?.addEventListener("click", handleReset);
+
+  document.getElementById("lock-bets")?.addEventListener("click", () => {
+    const ep = activeEpisode();
+    if (!ep) return;
+    if (!confirm("Lock bets for this episode? Players won\u2019t be able to change their picks until unlocked.")) return;
+    ep.betsLocked = true;
+    ep.betsLockedAt = Date.now();
+    saveState();
+    renderMainTabs();
+    renderEpisodeContent();
+    updateViewVisibility();
+  });
+
+  document.getElementById("unlock-bets")?.addEventListener("click", () => {
+    const ep = activeEpisode();
+    if (!ep) return;
+    if (!confirm("Unlock bets? Players will be able to change their picks again.")) return;
+    ep.betsLocked = false;
+    saveState();
+    renderMainTabs();
+    renderEpisodeContent();
+    updateViewVisibility();
+  });
 
   document.getElementById("close-episode")?.addEventListener("click", () => {
     const ep = activeEpisode();
     if (!ep) return;
     ep.closed = true;
+    if (!ep.betsLocked) {
+      ep.betsLocked = true;
+      ep.betsLockedAt = Date.now();
+    }
     saveState();
     renderMainTabs();
     renderEpisodeContent();
+    updateViewVisibility();
   });
 
   document.getElementById("reopen-episode")?.addEventListener("click", () => {
@@ -1538,12 +2887,14 @@ function wireActions() {
     if (!ep) return;
     if (!confirm("Reopen this episode? Be careful not to change finalized data by accident.")) return;
     ep.closed = false;
+    ep.betsLocked = false;
     saveState();
     renderMainTabs();
     renderEpisodeContent();
+    updateViewVisibility();
   });
 
-  document.getElementById("delete-episode").addEventListener("click", deleteActiveEpisode);
+  document.getElementById("delete-episode")?.addEventListener("click", deleteActiveEpisode);
 }
 
 function populateCustomCategorySelect() {
@@ -1563,21 +2914,468 @@ function populateCustomCategorySelect() {
   sel.value = "_custom";
 }
 
-function renderAll() {
-  normalizeActiveTab();
-  renderMainTabs();
-  updateViewVisibility();
-  renderOverview();
-  if (activeEpisode()) renderEpisodeContent();
-  renderLeaderboard();
-  populateMasterEventDatalist();
-  populateCustomCategorySelect();
-  renderEventBank();
+/* ── Weekly recap renderer ── */
+const SEEN_RECAPS_KEY = "bachelorette-seen-weekly-recaps";
+
+function getSeenRecaps() {
+  try { return JSON.parse(localStorage.getItem(SEEN_RECAPS_KEY) || "{}"); } catch { return {}; }
 }
 
+function markRecapSeen(weekId) {
+  const seen = getSeenRecaps();
+  seen[weekId] = true;
+  localStorage.setItem(SEEN_RECAPS_KEY, JSON.stringify(seen));
+}
+
+function generateRecapMarkdown(recap) {
+  const RANK_ICONS = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", "4."];
+  let md = `\uD83D\uDCFA Uge ${recap.weekNum} opsummering (${recap.dateRange})\n\n`;
+  recap.scoreboard.forEach((s, idx) => {
+    md += `${RANK_ICONS[idx]} ${PLAYER_NAMES[s.playerIndex]} \u2014 ${formatDanishNumber(s.weekPoints)} point denne uge\n`;
+  });
+  md += "\n";
+  if (recap.highlights.biggestPayout) {
+    const h = recap.highlights.biggestPayout;
+    md += `\uD83D\uDCB0 Ugens gevinst: ${h.player} ramte '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+  }
+  if (recap.highlights.biggestWhiff) {
+    const h = recap.highlights.biggestWhiff;
+    md += `\uD83E\uDD21 Ugens fiasko: ${h.player} satsede p\u00E5 '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day}). Det skete ikke.\n`;
+  }
+  if (recap.eliminations.length) {
+    const names = recap.eliminations.map((e) => e.contestantName).join(" og ");
+    const callers = recap.eliminations.flatMap((e) => e.calledBy.map((i) => PLAYER_NAMES[i]));
+    const unique = [...new Set(callers)];
+    if (unique.length) {
+      md += `\uD83C\uDFAF Eliminering: ${names} r\u00F8g ud. ${unique.join(" og ")} ramte plet!\n`;
+    } else {
+      md += `\uD83C\uDFAF Eliminering: ${names} r\u00F8g ud. Ingen s\u00E5 det komme.\n`;
+    }
+  }
+  md += "\n\uD83C\uDFC6 S\u00E6sonen indtil nu:\n";
+  recap.seasonStandings.forEach((s) => {
+    const name = PLAYER_NAMES[s.playerIndex];
+    const rc = s.rankChange || "\u2192";
+    md += `  ${name} (${formatDanishNumber(s.totalPoints)} point) ${rc}\n`;
+  });
+  md += `\nBejlere tilbage: ${recap.nextWeek.contestantsRemaining}`;
+  return md.trim();
+}
+
+function renderWeeklyRecap() {
+  const root = document.getElementById("weekly-recap-cards");
+  const progress = document.getElementById("weekly-recap-progress");
+  if (!root) return;
+  root.innerHTML = "";
+  if (progress) progress.innerHTML = "";
+
+  const allWeeks = getAllWeekIds();
+  const RANK_ICONS = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", ""];
+
+  const currentWeek = allWeeks.find((wid) => !isWeekComplete(wid));
+  if (currentWeek && progress) {
+    const eps = getEpisodesForWeek(currentWeek);
+    const closedCount = eps.filter((ep) => isEpisodeClosed(ep)).length;
+    const strip = document.createElement("div");
+    strip.className = "weekly-recap-progress__strip";
+    strip.textContent = `Uge i gang: ${closedCount} af ${eps.length} episoder lukket`;
+    progress.append(strip);
+  }
+
+  const completeWeeks = allWeeks.filter((wid) => isWeekComplete(wid));
+  if (!completeWeeks.length) {
+    const empty = document.createElement("p");
+    empty.className = "panel__hint";
+    empty.textContent = "Ingen f\u00E6rdige uger endnu. Luk alle episoder i en uge for at se opsummeringen.";
+    root.append(empty);
+    return;
+  }
+
+  const seen = getSeenRecaps();
+  for (let wi = 0; wi < completeWeeks.length; wi++) {
+    const weekId = completeWeeks[wi];
+    const recap = computeWeeklyRecap(weekId);
+    if (!recap) continue;
+
+    if (!seen[weekId]) markRecapSeen(weekId);
+
+    const isNewest = wi === 0;
+    const card = document.createElement("article");
+    card.className = "recap-card" + (isNewest ? "" : " recap-card--collapsed");
+
+    // ── Header ──
+    const header = document.createElement("header");
+    header.className = "recap-card__header";
+    const title = document.createElement("h3");
+    title.className = "recap-card__title";
+    title.textContent = recap.weekLabel;
+    if (!isNewest) {
+      const chevron = document.createElement("span");
+      chevron.className = "recap-card__chevron";
+      chevron.textContent = "\u25B6";
+      title.prepend(chevron);
+    }
+    header.style.cursor = "pointer";
+    header.addEventListener("click", (e) => {
+      if (e.target.closest(".recap-card__copy")) return;
+      card.classList.toggle("recap-card--collapsed");
+    });
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.className = "btn btn--ghost recap-card__copy";
+    copyBtn.textContent = "Kopier ugens opsummering";
+    copyBtn.addEventListener("click", () => {
+      const md = generateRecapMarkdown(recap);
+      navigator.clipboard.writeText(md).then(() => showToast("Kopieret!")).catch(() => showToast("Kunne ikke kopiere"));
+    });
+    header.append(title, copyBtn);
+    card.append(header);
+
+    const cardBody = document.createElement("div");
+    cardBody.className = "recap-card__body";
+
+    // ── Section A: Scoreboard ──
+    const sbSection = document.createElement("section");
+    sbSection.className = "recap-section";
+    const sbTitle = document.createElement("h4");
+    sbTitle.className = "recap-section__title";
+    sbTitle.textContent = "Ugens stilling";
+    sbSection.append(sbTitle);
+    recap.scoreboard.forEach((s, idx) => {
+      const row = document.createElement("div");
+      row.className = "recap-sb-row" + (idx === 0 ? " recap-sb-row--winner" : "");
+      const rank = document.createElement("span");
+      rank.className = "recap-sb-row__rank";
+      rank.textContent = RANK_ICONS[idx] || `${s.rank}.`;
+      const name = document.createElement("span");
+      name.className = "recap-sb-row__name";
+      name.textContent = PLAYER_NAMES[s.playerIndex];
+      const pts = document.createElement("span");
+      pts.className = "recap-sb-row__pts";
+      pts.textContent = `${formatDanishNumber(s.weekPoints)} point`;
+      row.append(rank, name, pts);
+      if (s.bestEpisodeDay && s.bestEpisodePts > 0) {
+        const best = document.createElement("span");
+        best.className = "recap-sb-row__best";
+        best.textContent = `Bedste aften: ${s.bestEpisodeDay}, ${formatDanishNumber(s.bestEpisodePts)} point`;
+        row.append(best);
+      }
+      sbSection.append(row);
+    });
+    cardBody.append(sbSection);
+
+    // ── Section B: Highlights ──
+    const hl = recap.highlights;
+    const hlItems = [];
+    if (hl.biggestPayout) {
+      hlItems.push({
+        icon: "\uD83D\uDCB0",
+        title: "Ugens st\u00F8rste gevinst",
+        text: `${hl.biggestPayout.player} ramte '${hl.biggestPayout.text}' til ${formatDanishNumber(hl.biggestPayout.odds)}x (${hl.biggestPayout.day})`,
+        accent: "gold",
+      });
+    }
+    if (hl.biggestWhiff) {
+      hlItems.push({
+        icon: "\uD83E\uDD21",
+        title: "Ugens st\u00F8rste fiasko",
+        text: `${hl.biggestWhiff.player} satsede p\u00E5 '${hl.biggestWhiff.text}' til ${formatDanishNumber(hl.biggestWhiff.odds)}x (${hl.biggestWhiff.day}). Det skete ikke.`,
+        accent: "coral",
+      });
+    }
+    if (hl.hotStreak) {
+      hlItems.push({
+        icon: "\uD83D\uDCC8",
+        title: "Hot streak",
+        text: `${hl.hotStreak.player} er p\u00E5 en ${hl.hotStreak.count}-episoders stime \uD83D\uDD25`,
+        accent: "purple",
+      });
+    }
+    if (hl.mostPlayedEvent) {
+      const mp = hl.mostPlayedEvent;
+      const verb = mp.hit ? "Det skete!" : "Det skete ikke.";
+      hlItems.push({
+        icon: "\uD83C\uDFAD",
+        title: "Ugens mest spillede event",
+        text: `${mp.count} af jer satsede p\u00E5 '${mp.text}'. ${verb}`,
+        accent: mp.hit ? "gold" : "coral",
+      });
+    }
+    if (hlItems.length) {
+      const hlSection = document.createElement("section");
+      hlSection.className = "recap-section";
+      const hlTitle = document.createElement("h4");
+      hlTitle.className = "recap-section__title";
+      hlTitle.textContent = "Ugens h\u00F8jdepunkter";
+      hlSection.append(hlTitle);
+      const hlGrid = document.createElement("div");
+      hlGrid.className = "recap-highlights";
+      for (const item of hlItems) {
+        const hlCard = document.createElement("div");
+        hlCard.className = `recap-hl-card recap-hl-card--${item.accent}`;
+        const hlIcon = document.createElement("span");
+        hlIcon.className = "recap-hl-card__icon";
+        hlIcon.textContent = item.icon;
+        const hlBody = document.createElement("div");
+        hlBody.className = "recap-hl-card__body";
+        const hlH = document.createElement("strong");
+        hlH.className = "recap-hl-card__title";
+        hlH.textContent = item.title;
+        const hlP = document.createElement("p");
+        hlP.className = "recap-hl-card__text";
+        hlP.textContent = item.text;
+        hlBody.append(hlH, hlP);
+        hlCard.append(hlIcon, hlBody);
+        hlGrid.append(hlCard);
+      }
+      hlSection.append(hlGrid);
+      cardBody.append(hlSection);
+    }
+
+    // ── Section D: Rose ceremony ──
+    if (recap.eliminations.length || recap.highlights.eliminationCallText === "Ingen elimineringer denne uge") {
+      const roseSection = document.createElement("section");
+      roseSection.className = "recap-section recap-section--ceremony";
+      const roseTitle = document.createElement("h4");
+      roseTitle.className = "recap-section__title";
+      roseTitle.textContent = "\uD83C\uDF39 Torsdagens roseceremoni";
+      roseSection.append(roseTitle);
+      if (!recap.eliminations.length) {
+        const p = document.createElement("p");
+        p.className = "recap-section__note";
+        p.textContent = "Ingen elimineringer denne uge";
+        roseSection.append(p);
+      } else {
+        const photoRow = document.createElement("div");
+        photoRow.className = "recap-elim-photos";
+        for (const el of recap.eliminations) {
+          const wrap = document.createElement("div");
+          wrap.className = "recap-elim-person";
+          if (el.photoUrl) {
+            const img = document.createElement("img");
+            img.className = "recap-elim-person__photo";
+            img.src = el.photoUrl;
+            img.alt = el.contestantName;
+            img.loading = "lazy";
+            wrap.append(img);
+          }
+          const textWrap = document.createElement("div");
+          textWrap.className = "recap-elim-person__text";
+          const name = document.createElement("span");
+          name.className = "recap-elim-person__name";
+          name.textContent = el.contestantName;
+          textWrap.append(name);
+          if (el.calledBy.length) {
+            const callers = document.createElement("span");
+            callers.className = "recap-elim-person__callers";
+            callers.textContent = el.calledBy.map((i) => `\u2713 ${PLAYER_NAMES[i]}`).join(", ");
+            textWrap.append(callers);
+          }
+          wrap.append(textWrap);
+          photoRow.append(wrap);
+        }
+        if (recap.highlights.eliminationCallText) {
+          const roseRow = document.createElement("div");
+          roseRow.className = "recap-ceremony-row";
+          const callNote = document.createElement("p");
+          callNote.className = "recap-section__note recap-section__note--call";
+          callNote.textContent = recap.highlights.eliminationCallText;
+          roseRow.append(photoRow, callNote);
+          roseSection.append(roseRow);
+        } else {
+          roseSection.append(photoRow);
+        }
+      }
+      cardBody.append(roseSection);
+    }
+
+    // ── Section E: Season standings ──
+    const standSection = document.createElement("section");
+    standSection.className = "recap-section";
+    const standTitle = document.createElement("h4");
+    standTitle.className = "recap-section__title";
+    standTitle.textContent = "S\u00E6sonstilling";
+    standSection.append(standTitle);
+    for (const s of recap.seasonStandings) {
+      const row = document.createElement("div");
+      row.className = "recap-stand-row";
+      const rankEl = document.createElement("span");
+      rankEl.className = "recap-stand-row__rank";
+      rankEl.textContent = `${s.rank}.`;
+      const nameEl = document.createElement("span");
+      nameEl.className = "recap-stand-row__name";
+      nameEl.textContent = PLAYER_NAMES[s.playerIndex];
+      const ptsEl = document.createElement("span");
+      ptsEl.className = "recap-stand-row__pts";
+      ptsEl.textContent = `${formatDanishNumber(s.totalPoints)} point`;
+      const weekGain = document.createElement("span");
+      weekGain.className = "recap-stand-row__gain";
+      weekGain.textContent = `+${formatDanishNumber(s.weekPointsGained)} denne uge`;
+      row.append(rankEl, nameEl, ptsEl, weekGain);
+      if (s.rankChange) {
+        const rc = document.createElement("span");
+        rc.className = "recap-stand-row__change" +
+          (s.rankChange.startsWith("\u2191") ? " recap-stand-row__change--up" :
+           s.rankChange.startsWith("\u2193") ? " recap-stand-row__change--down" : "");
+        rc.textContent = s.rankChange;
+        row.append(rc);
+      }
+      if (s.streakCount > 0) {
+        const streak = document.createElement("span");
+        streak.className = "recap-stand-row__streak";
+        streak.textContent = `\uD83D\uDD25 ${s.streakCount}`;
+        row.append(streak);
+      }
+      if (s.distanceToFirst > 0) {
+        const dist = document.createElement("span");
+        dist.className = "recap-stand-row__dist";
+        dist.textContent = `${formatDanishNumber(s.distanceToFirst)} point bagud`;
+        row.append(dist);
+      }
+      standSection.append(row);
+    }
+    const remaining = document.createElement("p");
+    remaining.className = "recap-section__note";
+    remaining.textContent = `Bejlere tilbage: ${recap.nextWeek.contestantsRemaining}`;
+    standSection.append(remaining);
+    cardBody.append(standSection);
+
+    card.append(cardBody);
+    root.append(card);
+  }
+}
+
+function checkNewRecapBanner() {
+  const seen = getSeenRecaps();
+  const allWeeks = getAllWeekIds();
+  const unseen = allWeeks.find((wid) => isWeekComplete(wid) && !seen[wid]);
+  if (unseen) {
+    const allSorted = getAllWeekIds().slice().sort();
+    const seasonWeekNum = allSorted.indexOf(unseen) + 1;
+    const existing = document.getElementById("recap-ready-banner");
+    if (existing) existing.remove();
+    const banner = document.createElement("div");
+    banner.id = "recap-ready-banner";
+    banner.className = "recap-ready-banner";
+    banner.innerHTML = `<span>\uD83D\uDCFA Uge ${seasonWeekNum} opsummering er klar</span>`;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "btn btn--secondary recap-ready-banner__btn";
+    btn.textContent = "Se opsummering";
+    btn.addEventListener("click", () => {
+      state.activeTab = WEEKLY_RECAP;
+      saveState();
+      renderMainTabs();
+      updateViewVisibility();
+      renderWeeklyRecap();
+      banner.remove();
+    });
+    banner.append(btn);
+    document.querySelector(".app")?.prepend(banner);
+  }
+}
+
+function renderAll() {
+  normalizeActiveTab();
+  const safe = (fn, label) => { try { fn(); } catch (e) { console.error(label + ":", e); } };
+  safe(renderMainTabs, "renderMainTabs");
+  safe(updateViewVisibility, "updateViewVisibility");
+  safe(renderOverview, "renderOverview");
+  if (activeEpisode()) safe(renderEpisodeContent, "renderEpisodeContent");
+  safe(renderLeaderboard, "renderLeaderboard");
+  safe(renderSeasonBets, "renderSeasonBets");
+  safe(populateMasterEventDatalist, "populateMasterEventDatalist");
+  safe(populateCustomCategorySelect, "populateCustomCategorySelect");
+  safe(renderEventBank, "renderEventBank");
+  safe(renderWeeklyRecap, "renderWeeklyRecap");
+  safe(renderUpcomingDeadlineStrip, "renderUpcomingDeadlineStrip");
+  safe(checkNewRecapBanner, "checkNewRecapBanner");
+}
+
+const REMINDER_KEY = "bachelorette-deadline-reminder-dismissed";
+
+function autoLockTick() {
+  const now = Date.now();
+  let changed = false;
+  for (const ep of state.episodes) {
+    if (shouldAutoLock(ep, now)) {
+      ep.betsLocked = true;
+      ep.betsLockedAt = now;
+      changed = true;
+      const idx = state.episodes.indexOf(ep);
+      showToast("\uD83D\uDD12 Bets auto-l\u00E5st for " + episodeTabLabel(idx));
+    }
+  }
+  if (changed) {
+    saveState();
+    try { renderAll(); } catch (e) { console.error("renderAll (autolock):", e); }
+  }
+}
+
+function renderUpcomingDeadlineStrip() {
+  const el = document.getElementById("upcoming-deadline-strip");
+  if (!el) return;
+  const now = Date.now();
+  let soonest = null;
+  let soonestIdx = -1;
+  for (let i = 0; i < state.episodes.length; i++) {
+    const ep = state.episodes[i];
+    if (ep.betsLockDeadline && !ep.betsLocked && !ep.closed) {
+      if (!soonest || ep.betsLockDeadline < soonest.betsLockDeadline) {
+        soonest = ep;
+        soonestIdx = i;
+      }
+    }
+  }
+  if (!soonest) {
+    el.hidden = true;
+    return;
+  }
+  el.hidden = false;
+  const diff = soonest.betsLockDeadline - now;
+  const isWarn = diff < 6 * 3600000;
+  el.className = "upcoming-deadline-strip" + (isWarn ? " upcoming-deadline-strip--warn" : "");
+  el.textContent = "\u23F0 N\u00E6ste lock: " + episodeTabLabel(soonestIdx) + " \u2014 " + formatCountdown(soonest.betsLockDeadline);
+}
+
+function checkDeadlineReminder() {
+  const now = Date.now();
+  for (const ep of state.episodes) {
+    if (!ep.betsLockDeadline || ep.betsLocked || ep.closed) continue;
+    const diff = ep.betsLockDeadline - now;
+    if (diff > 0 && diff < 12 * 3600000) {
+      const key = REMINDER_KEY + "-" + ep.id;
+      if (!localStorage.getItem(key)) {
+        localStorage.setItem(key, "1");
+        const idx = state.episodes.indexOf(ep);
+        showToast("\u23F0 Bets for " + episodeTabLabel(idx) + " l\u00E5ses om " + formatCountdown(ep.betsLockDeadline) + ". Har du valgt?");
+      }
+    }
+  }
+}
+
+function refreshCountdowns() {
+  const ep = activeEpisode();
+  if (ep) {
+    const deadlineEl = document.getElementById("deadline-display");
+    if (deadlineEl && ep.betsLockDeadline && !ep.closed) {
+      renderDeadlineDisplay(deadlineEl, ep);
+    }
+  }
+  renderUpcomingDeadlineStrip();
+}
+
+let autoLockIntervalId = null;
+let countdownIntervalId = null;
+
 function init() {
-  renderAll();
-  wireActions();
+  try { renderAll(); } catch (e) { console.error("renderAll failed:", e); }
+  try { wireActions(); } catch (e) { console.error("wireActions failed:", e); }
+  autoLockTick();
+  checkDeadlineReminder();
+
+  if (!autoLockIntervalId) autoLockIntervalId = setInterval(autoLockTick, 30000);
+  if (!countdownIntervalId) countdownIntervalId = setInterval(refreshCountdowns, 60000);
 
   fbRef.on("value", (snapshot) => {
     const remote = snapshot.val();
@@ -1592,15 +3390,28 @@ function init() {
     const localTab = state.activeTab;
     suppressFirebaseWrite = true;
     const merged = { ...defaultState(), ...remote, activeTab: localTab };
+    if (!merged.bets || typeof merged.bets !== "object") merged.bets = {};
+    if (!merged.occurred || typeof merged.occurred !== "object") merged.occurred = {};
     if (!Array.isArray(merged.customBankEvents)) merged.customBankEvents = [];
     if (!Array.isArray(merged.hiddenBankEvents)) merged.hiddenBankEvents = [];
     if (!merged.bankOddsOverrides || typeof merged.bankOddsOverrides !== "object") merged.bankOddsOverrides = {};
     if (!merged.bankTextOverrides || typeof merged.bankTextOverrides !== "object") merged.bankTextOverrides = {};
+    if (!merged.bankPhaseOverrides || typeof merged.bankPhaseOverrides !== "object") merged.bankPhaseOverrides = {};
     if (!merged.eliminationBets || typeof merged.eliminationBets !== "object") merged.eliminationBets = {};
+    if (!merged.seasonBets || typeof merged.seasonBets !== "object") merged.seasonBets = {};
+    if (!merged.seasonResults || typeof merged.seasonResults !== "object") merged.seasonResults = {};
+    if (typeof merged.seasonBetsLocked !== "boolean") merged.seasonBetsLocked = false;
+    if (!merged.contestantNotes || typeof merged.contestantNotes !== "object") merged.contestantNotes = {};
+    if (!Array.isArray(merged.episodes)) merged.episodes = [];
+    for (const ep of merged.episodes) {
+      if (!Array.isArray(ep.events)) ep.events = [];
+      if (!Array.isArray(ep.eliminated)) ep.eliminated = [];
+      if (!Array.isArray(ep.guys)) ep.guys = [];
+    }
     state = merged;
     normalizeActiveTab();
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    renderAll();
+    try { renderAll(); } catch (e) { console.error("renderAll failed:", e); }
     suppressFirebaseWrite = false;
   });
 }

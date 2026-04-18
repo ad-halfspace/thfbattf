@@ -175,6 +175,19 @@ body {
   grid-column: 1 / -1;
 }
 
+.panel--scoring {
+  border-left: 3px solid var(--rose-red);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--rose-red) 3%, var(--cream-card)), var(--cream-card) 60%);
+}
+
+.panel--scoring .panel__title {
+  color: var(--rose-red);
+}
+
+.panel--scoring .panel__hint {
+  color: color-mix(in srgb, var(--rose-red) 40%, var(--ink-soft));
+}
+
 .panel__title {
   font-family: var(--font-display);
   font-size: 0.95rem;
@@ -277,6 +290,187 @@ body {
   font-size: 0.8125rem;
   color: var(--ink-soft);
   line-height: 1.45;
+}
+
+/* ── Contestant notes ── */
+.cast-note {
+  margin-top: 0.75rem;
+  padding-top: 0.65rem;
+  border-top: 1px dashed var(--line);
+}
+
+.cast-note__add {
+  background: none;
+  border: none;
+  padding: 0.3rem 0;
+  color: var(--ink-soft);
+  font-size: 0.8rem;
+  font-style: italic;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+.cast-note__add:hover {
+  opacity: 1;
+  color: var(--rose-red);
+}
+
+.cast-note__preview {
+  cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  background: color-mix(in srgb, var(--stone) 40%, transparent);
+  border-radius: calc(var(--radius) * 0.6);
+  transition: background 0.2s;
+}
+.cast-note__preview:hover {
+  background: color-mix(in srgb, var(--stone) 65%, transparent);
+}
+.cast-note__preview-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--ink);
+  font-family: var(--font-serif, var(--font-body));
+}
+.cast-note__meta {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.675rem;
+  color: var(--ink-soft);
+  opacity: 0.75;
+}
+
+.cast-note__editor {
+  position: relative;
+}
+.cast-note__player-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+.cast-note__player-label {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+.cast-note__change-player {
+  font-size: 0.65rem;
+  color: var(--rose-red);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  opacity: 0.8;
+}
+.cast-note__change-player:hover {
+  opacity: 1;
+}
+.cast-note__textarea {
+  width: 100%;
+  min-height: 60px;
+  max-height: 200px;
+  resize: none;
+  overflow-y: auto;
+  padding: 0.5rem;
+  font-size: 16px;
+  font-family: var(--font-serif, var(--font-body));
+  line-height: 1.5;
+  color: var(--ink);
+  background: color-mix(in srgb, var(--stone) 30%, transparent);
+  border: 1.5px solid var(--line);
+  border-radius: calc(var(--radius) * 0.6);
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+.cast-note__textarea:focus {
+  outline: none;
+  border-color: var(--rose-red);
+}
+
+.cast-note__counter {
+  display: block;
+  text-align: right;
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+  margin-top: 0.15rem;
+  min-height: 0.85em;
+}
+.cast-note__counter--warn {
+  color: var(--rose-red);
+  font-weight: 600;
+}
+
+.cast-note__saving {
+  font-size: 0.65rem;
+  color: var(--ink-soft);
+  opacity: 0;
+  transition: opacity 0.3s;
+  margin-left: 0.5rem;
+}
+.cast-note__saving--visible {
+  opacity: 1;
+}
+
+.cast-note__history {
+  margin-top: 0.4rem;
+  padding-top: 0.3rem;
+  border-top: 1px dashed var(--line);
+}
+.cast-note__history-line {
+  margin: 0.1rem 0;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  opacity: 0.55;
+  line-height: 1.35;
+}
+
+/* ── Player picker modal ── */
+.player-picker-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.player-picker-modal__box {
+  background: var(--cream-card);
+  border-radius: var(--radius);
+  padding: 1.75rem 2rem;
+  box-shadow: var(--shadow-card);
+  text-align: center;
+  min-width: 220px;
+}
+.player-picker-modal__title {
+  margin: 0 0 1rem;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.player-picker-modal__btn {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+.player-picker-modal__btn:last-child {
+  margin-bottom: 0;
+}
+.player-picker-modal__btn--active {
+  border-color: var(--gold-dark);
+  background: var(--gold-gradient);
+  color: #fff;
+  font-weight: 600;
 }
 
 .event-bank-section .panel__hint {
@@ -421,6 +615,122 @@ body {
   opacity: 1;
 }
 
+.event-bank-row__left {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.event-bank-row__top-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.event-bank-row__top-line .event-bank-row__text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ── Phase badges ── */
+
+.phase-badge {
+  display: inline-block;
+  flex-shrink: 0;
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.3;
+  transition: opacity 0.12s;
+  position: relative;
+}
+
+.phase-badge:hover {
+  opacity: 0.85;
+}
+
+.phase-badge--early-heavy {
+  background: rgba(76, 140, 200, 0.12);
+  color: #3a72a4;
+  border-color: rgba(76, 140, 200, 0.3);
+}
+
+.phase-badge--mid-peak {
+  background: rgba(180, 130, 50, 0.12);
+  color: #8a6a1a;
+  border-color: rgba(180, 130, 50, 0.3);
+}
+
+.phase-badge--late-heavy {
+  background: rgba(160, 60, 80, 0.12);
+  color: #944050;
+  border-color: rgba(160, 60, 80, 0.3);
+}
+
+.phase-badge--any {
+  background: var(--cream);
+  color: var(--ink-soft);
+  border-color: var(--line);
+  opacity: 0.5;
+}
+
+/* ── Phase dropdown (inline edit) ── */
+
+.phase-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 20;
+  margin-top: 4px;
+  background: var(--cream-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 20px rgba(42, 36, 32, 0.12);
+  padding: 0.25rem 0;
+  min-width: 6rem;
+}
+
+.phase-dropdown__item {
+  display: block;
+  width: 100%;
+  padding: 0.4rem 0.7rem;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-align: left;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.phase-dropdown__item:hover {
+  background: var(--cream-warm);
+}
+
+.phase-dropdown__item--active {
+  font-weight: 700;
+  color: var(--gold-deep);
+}
+
+/* ── Phase-adjusted odds preview ── */
+
+.event-bank-row__phase-preview {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--ink-soft);
+  margin-top: 0.2rem;
+  line-height: 1.4;
+  font-style: italic;
+}
+
 /* ── Category group headers ── */
 
 .bank-category-group {
@@ -505,6 +815,10 @@ body {
 
 .bank-custom-form__cat {
   max-width: 12rem;
+}
+
+.bank-custom-form__phase {
+  max-width: 9rem;
 }
 
 .player-list-static {
@@ -709,9 +1023,18 @@ body {
   color: var(--ink);
 }
 
+.guy-chip__photo {
+  width: 1.8rem;
+  height: 1.8rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--gold-dark);
+  flex-shrink: 0;
+}
+
 .guy-chip__initial {
-  width: 1.65rem;
-  height: 1.65rem;
+  width: 1.8rem;
+  height: 1.8rem;
   border-radius: 50%;
   background: var(--gold-gradient);
   color: #fffef8;
@@ -722,6 +1045,7 @@ body {
   font-weight: 700;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
 }
 
 .guy-chip button {
@@ -889,7 +1213,212 @@ body {
   pointer-events: none;
 }
 
+/* ── Bets-lock banner (lighter than closed banner) ── */
+.bets-lock-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 1rem;
+  background: color-mix(in srgb, var(--rose-red) 8%, var(--cream-warm));
+  border: 1px solid color-mix(in srgb, var(--rose-red) 20%, var(--line));
+  border-radius: var(--radius);
+  margin-bottom: 0.25rem;
+}
+.bets-lock-banner__icon { font-size: 1.1rem; flex-shrink: 0; }
+.bets-lock-banner__text {
+  font-size: 0.8125rem;
+  color: var(--ink);
+  line-height: 1.45;
+}
 
+/* ── Deadline display ── */
+.deadline-display {
+  grid-column: 1 / -1;
+  padding: 0.6rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--stone) 30%, transparent);
+  border-radius: var(--radius);
+  margin-bottom: 0.25rem;
+}
+.deadline-display--warn {
+  color: var(--rose-red);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--rose-red) 6%, var(--cream-warm));
+}
+.deadline-display--locked {
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+.episode-airdate-bar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+.episode-airdate-bar__label {
+  font-weight: 500;
+}
+.episode-airdate-bar__input {
+  max-width: 11rem;
+  font-size: 0.8125rem;
+}
+.episode-airdate-bar__elim-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  cursor: pointer;
+  user-select: none;
+  margin-left: 0.5rem;
+}
+.episode-airdate-bar__elim-toggle input[type="checkbox"] {
+  accent-color: var(--gold-deep);
+  width: 1rem;
+  height: 1rem;
+  cursor: pointer;
+}
+
+/* ── Upcoming deadline strip (overview) ── */
+.upcoming-deadline-strip {
+  padding: 0.6rem 1rem;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+  background: color-mix(in srgb, var(--stone) 30%, transparent);
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+}
+.upcoming-deadline-strip--warn {
+  color: var(--rose-red);
+  font-weight: 600;
+  background: color-mix(in srgb, var(--rose-red) 6%, var(--cream-warm));
+}
+
+/* ── Toast ── */
+.app-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(120%);
+  padding: 0.7rem 1.2rem;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 0.8125rem;
+  border-radius: 999px;
+  box-shadow: var(--shadow-card);
+  z-index: 2000;
+  opacity: 0;
+  transition: transform 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.app-toast--visible {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* ── Lock/unlock bets buttons ── */
+.btn--lock-bets {
+  background: transparent;
+  color: var(--gold-deep);
+  border: 1.5px solid var(--gold-deep);
+  box-shadow: none;
+}
+.btn--lock-bets:hover {
+  background: color-mix(in srgb, var(--gold-deep) 10%, var(--cream-card));
+  filter: none;
+}
+.btn--unlock-bets {
+  background: transparent;
+  color: var(--gold-deep);
+  border: 1px solid rgba(166, 124, 26, 0.45);
+  box-shadow: none;
+}
+.btn--unlock-bets:hover {
+  background: color-mix(in srgb, var(--gold-deep) 8%, var(--cream-card));
+  filter: none;
+}
+
+/* ── Add episode form ── */
+/* ── Generic modal overlay ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeIn 0.15s ease;
+}
+.modal-overlay__box {
+  background: var(--cream-card);
+  border-radius: var(--radius);
+  padding: 2rem 2.25rem;
+  min-width: 280px;
+  max-width: 380px;
+  width: 90vw;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+  animation: modalSlideUp 0.2s ease;
+}
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.modal-overlay__title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold-deep);
+  margin: 0 0 1.25rem;
+}
+.modal-overlay__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-bottom: 1.5rem;
+}
+.modal-overlay__label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+}
+.modal-overlay__field input {
+  font-size: 0.9rem;
+  padding: 0.55rem 0.7rem;
+  border: 1.5px solid var(--line);
+  border-radius: calc(var(--radius) * 0.6);
+  background: var(--cream);
+  color: var(--ink);
+  font-family: inherit;
+}
+.modal-overlay__field input:focus {
+  outline: none;
+  border-color: var(--gold-mid);
+}
+.modal-overlay__actions {
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+/* ── Locked bet card overlay ── */
+.bet-card--locked select {
+  opacity: 0.55;
+}
 
 .events-list {
   list-style: none;
@@ -1016,15 +1545,15 @@ body {
 
 .bet-card__slot label {
   display: block;
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   color: var(--ink-soft);
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.3rem;
 }
 
-.bet-card select {
+.bet-card__slot select {
   width: 100%;
   padding: 0.55rem 0.65rem;
   border-radius: var(--radius-sm);
@@ -1036,7 +1565,7 @@ body {
   cursor: pointer;
 }
 
-.bet-card select:focus {
+.bet-card__slot select:focus {
   outline: none;
   border-color: var(--gold-mid);
 }
@@ -1061,8 +1590,12 @@ body {
 
 .result-item:has(input:checked) {
   border-color: rgba(194, 30, 46, 0.35);
-  background: var(--cream-card);
+  background: color-mix(in srgb, var(--rose-red) 5%, var(--cream-card));
   box-shadow: inset 0 0 0 1px var(--rose-soft);
+}
+
+.result-item:has(input:checked) span {
+  font-weight: 600;
 }
 
 .result-item input {
@@ -1250,7 +1783,7 @@ body {
 
 .overview-columns {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 1.5rem;
 }
 
@@ -1318,15 +1851,110 @@ body {
   color: var(--rose-red);
 }
 
+/* ── Bet status badge in leaderboard ── */
+
+.lb-row__bet-status {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  min-width: 3.5rem;
+  text-align: center;
+}
+
+.lb-row__bet-status--done {
+  background: rgba(60, 140, 60, 0.12);
+  color: #2d7a2d;
+  border: 1px solid rgba(60, 140, 60, 0.3);
+}
+
+.lb-row__bet-status--missing {
+  background: rgba(200, 80, 60, 0.08);
+  color: #b84030;
+  border: 1px solid rgba(200, 80, 60, 0.25);
+}
+
+/* ── Streak badges (leaderboard) ── */
+.lb-row__streak {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  min-width: 2rem;
+  text-align: center;
+}
+.lb-row__streak--hot {
+  color: #d4790e;
+  animation: streakPulse 2s ease-in-out infinite;
+}
+@keyframes streakPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.lb-longest-streak {
+  margin: 0.6rem 0 0;
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  text-align: right;
+  font-style: italic;
+}
+
+/* ── Streak bonus tag (episode summary) ── */
+.streak-bonus-tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #d4790e;
+  margin-left: 0.3rem;
+}
+.streak-summary {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+/* ── Streak leaders (overview) ── */
+.overview-streak-leaders {
+  display: grid;
+  gap: 0;
+}
+.streak-leader-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.8125rem;
+}
+.streak-leader-row:last-child { border-bottom: none; }
+.streak-leader-row__name { font-weight: 500; color: var(--ink); }
+.streak-leader-row__val { font-weight: 600; color: var(--ink); min-width: 2.5rem; text-align: center; }
+.streak-leader-row__next {
+  font-size: 0.7rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.streak-leader-row__bonus {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #d4790e;
+}
+
 .leaderboard {
   display: grid;
   gap: 0;
 }
 
 .lb-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto auto auto;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.65rem;
   padding: 0.9rem 0;
   border-bottom: 1px solid var(--line);
 }
@@ -1346,10 +1974,29 @@ body {
   font-weight: 600;
   font-size: 0.9rem;
   letter-spacing: 0.02em;
+  text-align: right;
   background: var(--gold-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+}
+
+.lb-row__elim {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-align: center;
+  min-width: 2rem;
+}
+
+.lb-row__season {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--gold-deep);
+  text-align: center;
+  min-width: 3.2rem;
 }
 
 /* ── All-bets overview ── */
@@ -1462,4 +2109,468 @@ body {
 .footer__note {
   font-size: 0.75rem;
   color: var(--ink-soft);
+}
+
+/* ── Season bets ── */
+
+.season-bets-section {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.season-bets-lock-bar {
+  margin-bottom: 1.5rem;
+  text-align: center;
+}
+
+.btn--season-lock {
+  font-size: 1rem;
+  padding: 0.75rem 2rem;
+}
+
+.season-lock-badge {
+  display: inline-block;
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #fff4d6, #f0dca8);
+  color: var(--gold-deep);
+  border: 1px solid rgba(212, 168, 75, 0.35);
+}
+
+.season-bets-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-bottom: 2.5rem;
+}
+
+.season-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.4rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.season-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.3rem;
+}
+
+.season-card__title {
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  font-size: 1.05rem;
+  color: var(--ink);
+}
+
+.season-card__pts {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--gold-gradient);
+  color: #fff;
+}
+
+.season-card__desc {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+  margin-bottom: 0.9rem;
+}
+
+.season-card__players {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+}
+
+.season-card__player {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  position: relative;
+}
+
+.season-card__player-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.season-card__select {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  width: 100%;
+}
+
+.season-card__select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background: var(--cream);
+}
+
+.season-card__trophy {
+  position: absolute;
+  top: -0.1rem;
+  right: 0;
+  font-size: 0.9rem;
+}
+
+/* ── Season results ── */
+
+.season-results-section {
+  margin-bottom: 2rem;
+}
+
+.season-results-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.season-result-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.season-result-row__label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.season-result-row__select {
+  font-size: 0.82rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+}
+
+/* ── Season score summary ── */
+
+.season-points-summary {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+
+.season-score-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.season-score-row:last-child {
+  border-bottom: none;
+}
+
+.season-score-row__name {
+  font-weight: 500;
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+
+.season-score-row__pts {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (max-width: 600px) {
+  .season-card__players {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .season-result-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ══════════════════════════════════════════
+   Weekly Recap
+   ══════════════════════════════════════════ */
+.weekly-recap-section { padding-bottom: 2rem; }
+.weekly-recap-progress { margin-bottom: 1rem; }
+.weekly-recap-progress__strip {
+  background: color-mix(in srgb, var(--gold-mid) 15%, var(--cream-card));
+  border: 1px solid var(--gold-mid);
+  border-radius: calc(var(--radius) * 0.6);
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gold-deep);
+}
+.weekly-recap-cards { display: flex; flex-direction: column; gap: 2rem; }
+
+/* Card */
+.recap-card {
+  background: var(--cream-card);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+.recap-card__header {
+  background: var(--gold-gradient);
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.recap-card__title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.recap-card__copy {
+  color: #fff !important;
+  border-color: rgba(255,255,255,0.5) !important;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.7rem;
+  white-space: nowrap;
+}
+.recap-card__copy:hover { background: rgba(255,255,255,0.15) !important; }
+.recap-card__body { }
+.recap-card--collapsed .recap-card__body { display: none; }
+.recap-card__chevron {
+  display: inline-block;
+  margin-right: 0.4rem;
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+  vertical-align: middle;
+}
+.recap-card--collapsed .recap-card__chevron { transform: rotate(0deg); }
+.recap-card:not(.recap-card--collapsed) .recap-card__chevron { transform: rotate(90deg); }
+
+/* Sections */
+.recap-section { padding: 1.25rem; border-top: 1px solid var(--line); }
+.recap-section:first-of-type { border-top: none; }
+.recap-section__title {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--gold-deep);
+  margin: 0 0 0.75rem;
+}
+.recap-section__note {
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin: 0.6rem 0 0;
+}
+.recap-section__note--call {
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+}
+.recap-ceremony-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+.recap-section__dates { font-size: 0.85rem; margin: 0; color: var(--ink); }
+.recap-section__countdown { font-size: 0.8rem; color: var(--ink-soft); margin: 0.3rem 0 0; }
+.recap-section--ceremony { background: color-mix(in srgb, var(--rose-red) 3%, var(--cream-card)); }
+.recap-section--next {
+  background: color-mix(in srgb, var(--gold-mid) 6%, var(--cream-card));
+  border-top: 1px dashed var(--gold-mid);
+}
+
+/* Scoreboard rows */
+.recap-sb-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+}
+.recap-sb-row:last-of-type { border-bottom: none; }
+.recap-sb-row--winner {
+  background: color-mix(in srgb, var(--gold-mid) 12%, var(--cream-card));
+  border-radius: calc(var(--radius) * 0.5);
+  padding: 0.55rem 0.5rem;
+  margin: 0 -0.5rem 0.3rem;
+}
+.recap-sb-row__rank { font-size: 1.1rem; text-align: center; }
+.recap-sb-row__name { font-weight: 600; font-size: 0.9rem; }
+.recap-sb-row__pts { font-weight: 700; font-size: 0.9rem; color: var(--gold-deep); white-space: nowrap; }
+.recap-sb-row__best {
+  grid-column: 2 / -1;
+  font-size: 0.72rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+
+/* Highlights */
+.recap-highlights {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+.recap-hl-card {
+  display: flex;
+  gap: 0.6rem;
+  padding: 0.85rem;
+  border-radius: calc(var(--radius) * 0.6);
+  border-left: 3px solid var(--line);
+  background: var(--cream);
+  min-height: 4.5rem;
+}
+.recap-hl-card--gold { border-left-color: var(--gold-deep); background: color-mix(in srgb, var(--gold-mid) 8%, var(--cream)); }
+.recap-hl-card--coral { border-left-color: #e07060; background: color-mix(in srgb, #e07060 5%, var(--cream)); }
+.recap-hl-card--green { border-left-color: #3a9b6c; background: color-mix(in srgb, #3a9b6c 5%, var(--cream)); }
+.recap-hl-card--purple { border-left-color: #7c5cbf; background: color-mix(in srgb, #7c5cbf 5%, var(--cream)); }
+.recap-hl-card__icon { font-size: 1.4rem; flex-shrink: 0; line-height: 1; }
+.recap-hl-card__body { min-width: 0; }
+.recap-hl-card__title { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.15rem; }
+.recap-hl-card__text { font-size: 0.82rem; margin: 0; color: var(--ink); line-height: 1.4; }
+
+/* Episode-by-episode */
+.recap-ep-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  align-items: baseline;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 50%, transparent);
+}
+.recap-ep-row:last-child { border-bottom: none; }
+.recap-ep-row--ceremony { position: relative; padding-left: 0.5rem; }
+.recap-ep-row--ceremony::before {
+  content: "\1F339";
+  position: absolute;
+  left: -0.2rem;
+  top: 0.5rem;
+  font-size: 0.7rem;
+}
+.recap-ep-row__day {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--gold-deep);
+  min-width: 5rem;
+}
+.recap-ep-row__info { font-size: 0.82rem; color: var(--ink); }
+.recap-ep-row__elim {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-left: 5.8rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.recap-ep-row__elim-photo {
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--rose-red);
+}
+
+/* Elimination photos */
+.recap-elim-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+.recap-elim-person {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: color-mix(in srgb, var(--rose-red) 5%, var(--cream-card));
+  border: 1px solid color-mix(in srgb, var(--rose-red) 15%, var(--line));
+  border-radius: calc(var(--radius) * 0.6);
+  padding: 0.6rem 1rem;
+  flex: 1 1 auto;
+  min-width: 180px;
+}
+.recap-elim-person__photo {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--rose-red);
+  flex-shrink: 0;
+}
+.recap-elim-person__text { display: flex; flex-direction: column; gap: 0.1rem; }
+.recap-elim-person__name { font-size: 0.9rem; font-weight: 700; }
+.recap-elim-person__callers { font-size: 0.78rem; color: #3a9b6c; font-weight: 600; }
+
+/* Season standings */
+.recap-stand-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.6rem;
+  align-items: center;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--line) 40%, transparent);
+}
+.recap-stand-row:last-of-type { border-bottom: none; }
+.recap-stand-row__rank { font-weight: 700; font-size: 0.85rem; min-width: 1.5rem; color: var(--gold-deep); }
+.recap-stand-row__name { font-weight: 600; font-size: 0.85rem; min-width: 4rem; }
+.recap-stand-row__pts { font-size: 0.85rem; font-weight: 700; }
+.recap-stand-row__gain { font-size: 0.75rem; color: var(--ink-soft); }
+.recap-stand-row__change { font-size: 0.8rem; font-weight: 700; }
+.recap-stand-row__change--up { color: #3a9b6c; }
+.recap-stand-row__change--down { color: #d04040; }
+.recap-stand-row__streak { font-size: 0.8rem; }
+.recap-stand-row__dist { width: 100%; font-size: 0.72rem; color: var(--ink-soft); font-style: italic; padding-left: 2.1rem; }
+
+/* Unseen recap banner */
+.recap-ready-banner {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--gold-gradient);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  animation: fadeIn 0.3s ease;
+}
+.recap-ready-banner__btn {
+  color: #fff !important;
+  border-color: rgba(255,255,255,0.6) !important;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+}
+.recap-ready-banner__btn:hover { background: rgba(255,255,255,0.15) !important; }
+
+@media (max-width: 600px) {
+  .recap-highlights { grid-template-columns: 1fr; }
+  .recap-elim-person { min-width: 0; }
+  .recap-ep-row__elim { padding-left: 0; }
+  .recap-sb-row { grid-template-columns: 2rem 1fr auto; }
+  .recap-card__header { flex-direction: column; align-items: flex-start; }
 }
