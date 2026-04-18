@@ -7,6 +7,7 @@ const CAST = "cast";
 const EVENT_BANK = "event-bank";
 const SEASON_BETS = "season-bets";
 const WEEKLY_RECAP = "weekly-recap";
+const MY_STATS = "my-stats";
 
 const EXPECTED_SEASON_LENGTH = 30;
 
@@ -367,6 +368,8 @@ function loadState() {
       activeTab === CAST ||
       activeTab === EVENT_BANK ||
       activeTab === SEASON_BETS ||
+      activeTab === WEEKLY_RECAP ||
+      activeTab === MY_STATS ||
       episodes.some((e) => e.id === activeTab);
     if (!tabOk) {
       activeTab = OVERVIEW;
@@ -456,7 +459,7 @@ function getEpisode(id) {
 }
 
 function normalizeActiveTab() {
-  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === SEASON_BETS || state.activeTab === WEEKLY_RECAP) return;
+  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === SEASON_BETS || state.activeTab === WEEKLY_RECAP || state.activeTab === MY_STATS) return;
   if (!getEpisode(state.activeTab)) {
     state.activeTab = state.episodes[0]?.id ?? OVERVIEW;
     saveState();
@@ -464,7 +467,7 @@ function normalizeActiveTab() {
 }
 
 function activeEpisode() {
-  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === WEEKLY_RECAP) return null;
+  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === WEEKLY_RECAP || state.activeTab === MY_STATS) return null;
   return getEpisode(state.activeTab);
 }
 
@@ -1009,6 +1012,7 @@ function updateViewVisibility() {
   const viewEventBank = document.getElementById("view-event-bank");
   const viewSeasonBets = document.getElementById("view-season-bets");
   const viewWeeklyRecap = document.getElementById("view-weekly-recap");
+  const viewMyStats = document.getElementById("view-my-stats");
   const episodeMain = document.getElementById("episode-workspace");
   const extras = document.getElementById("episode-extras");
   const onOverview = state.activeTab === OVERVIEW;
@@ -1016,12 +1020,14 @@ function updateViewVisibility() {
   const onEventBank = state.activeTab === EVENT_BANK;
   const onSeasonBets = state.activeTab === SEASON_BETS;
   const onWeeklyRecap = state.activeTab === WEEKLY_RECAP;
-  const onEpisode = !onOverview && !onCast && !onEventBank && !onSeasonBets && !onWeeklyRecap;
+  const onMyStats = state.activeTab === MY_STATS;
+  const onEpisode = !onOverview && !onCast && !onEventBank && !onSeasonBets && !onWeeklyRecap && !onMyStats;
   if (viewOverview) viewOverview.hidden = !onOverview;
   if (viewCast) viewCast.hidden = !onCast;
   if (viewEventBank) viewEventBank.hidden = !onEventBank;
   if (viewSeasonBets) viewSeasonBets.hidden = !onSeasonBets;
   if (viewWeeklyRecap) viewWeeklyRecap.hidden = !onWeeklyRecap;
+  if (viewMyStats) viewMyStats.hidden = !onMyStats;
   if (episodeMain) {
     episodeMain.hidden = !onEpisode;
     if (onEpisode) {
@@ -1664,6 +1670,7 @@ function renderMainTabs() {
     { id: CAST, label: "Bejlere" },
     { id: EVENT_BANK, label: "Bet bank" },
     { id: SEASON_BETS, label: "Season bets" },
+    { id: MY_STATS, label: "Player stats" },
   ];
   pages.forEach(({ id, label }) => {
     const btn = document.createElement("button");
@@ -1681,6 +1688,7 @@ function renderMainTabs() {
       if (id === EVENT_BANK) renderEventBank();
       if (id === SEASON_BETS) renderSeasonBets();
       if (id === WEEKLY_RECAP) renderWeeklyRecap();
+      if (id === MY_STATS) renderMyStats();
     });
     root.append(btn);
   });
@@ -2478,6 +2486,710 @@ function renderSeasonBets() {
   }
 }
 
+/* ── Personal stats ── */
+
+let selectedStatsPlayer = -1;
+let statsViewMode = "overview";
+
+function computePlayerStats(p) {
+  const streaks = getStreaks();
+  const epTotals = state.episodes.map((ep) => episodePoints(ep));
+  const allTotals = totalPointsAllEpisodes();
+  const sPts = seasonBetPoints();
+  const grandTotals = allTotals.map((v, i) => v + sPts[i] + (streaks[i]?.bonusPointsEarned || 0));
+
+  const sorted = grandTotals.map((v, i) => ({ i, v })).sort((a, b) => b.v - a.v);
+  let rank = 1;
+  for (let r = 0; r < sorted.length; r++) {
+    if (r > 0 && sorted[r].v < sorted[r - 1].v) rank = r + 1;
+    if (sorted[r].i === p) { rank = rank; break; }
+  }
+
+  let totalBets = 0, totalHits = 0;
+  let biggestWin = { text: "—", odds: 0 };
+  let bestNight = { label: "—", pts: 0 };
+  const catStats = {};
+  const eventStats = {};
+
+  for (let ei = 0; ei < state.episodes.length; ei++) {
+    const ep = state.episodes[ei];
+    ensureEpisodeMaps(ep.id);
+    ensureEliminatedArray(ep);
+    const occurred = new Set(state.occurred[ep.id] || []);
+    const picks = (state.bets[ep.id]?.[p] || []).filter(Boolean);
+    const epPts = epTotals[ei][p];
+
+    if (epPts > bestNight.pts) {
+      bestNight = { label: episodeTabLabel(ei), pts: epPts };
+    }
+
+    for (const eventId of picks) {
+      const ev = (ep.events || []).find((e) => e.id === eventId);
+      if (!ev) continue;
+      totalBets++;
+      const hit = occurred.has(eventId);
+      if (hit) totalHits++;
+
+      const cat = ev.category || "_other";
+      if (!catStats[cat]) catStats[cat] = { bet: 0, hit: 0 };
+      catStats[cat].bet++;
+      if (hit) catStats[cat].hit++;
+
+      const key = ev.text;
+      if (!eventStats[key]) eventStats[key] = { text: key, bet: 0, hit: 0 };
+      eventStats[key].bet++;
+      if (hit) {
+        eventStats[key].hit++;
+        const odds = Number(ev.odds) || 0;
+        if (odds > biggestWin.odds) biggestWin = { text: ev.text, odds };
+      }
+    }
+  }
+
+  const hitRate = totalBets > 0 ? Math.round((totalHits / totalBets) * 100) : null;
+
+  const byCategory = (window.BET_CATEGORIES || []).map((c) => {
+    const s = catStats[c.id] || { bet: 0, hit: 0 };
+    return { category: c.label, id: c.id, bet: s.bet, hit: s.hit, hitRate: s.bet > 0 ? Math.round((s.hit / s.bet) * 100) : null };
+  }).filter((c) => c.bet > 0).sort((a, b) => (b.hitRate ?? 0) - (a.hitRate ?? 0));
+
+  const allEvents = Object.values(eventStats);
+  const mostBet = [...allEvents].sort((a, b) => b.bet - a.bet).slice(0, 5).map((e) => ({ ...e, hitRate: Math.round((e.hit / e.bet) * 100) }));
+  const mostSuccessful = allEvents.filter((e) => e.bet >= 2).sort((a, b) => (b.hit / b.bet) - (a.hit / a.bet)).slice(0, 5).map((e) => ({ ...e, hitRate: Math.round((e.hit / e.bet) * 100) }));
+
+  const weeklyTrend = state.episodes.map((ep, i) => ({
+    weekLabel: `Ep ${i + 1}`,
+    points: epTotals[i][p],
+    groupAvg: Math.round((epTotals[i].reduce((a, b) => a + b, 0) / PLAYER_COUNT) * 10) / 10,
+  }));
+
+  let elimTotal = 0, elimCorrect = 0, elimPts = 0, elimStreak = 0, elimLongest = 0;
+  const correctContestants = [];
+  for (const ep of state.episodes) {
+    ensureEpisodeMaps(ep.id);
+    ensureEliminatedArray(ep);
+    const pick = state.eliminationBets[ep.id]?.[p];
+    if (!pick) continue;
+    elimTotal++;
+    const elimSet = new Set(ep.eliminated || []);
+    if (elimSet.has(pick)) {
+      elimCorrect++;
+      elimStreak++;
+      if (elimStreak > elimLongest) elimLongest = elimStreak;
+      elimPts += eliminationOdds(ep);
+      correctContestants.push({ name: pick, photoUrl: castPhotoByName(pick) });
+    } else {
+      elimStreak = 0;
+    }
+  }
+
+  const comparisons = {};
+  const allHitRates = PLAYER_NAMES.map((_, i) => {
+    let b = 0, h = 0;
+    for (const ep of state.episodes) {
+      ensureEpisodeMaps(ep.id);
+      const occ = new Set(state.occurred[ep.id] || []);
+      for (const eid of (state.bets[ep.id]?.[i] || []).filter(Boolean)) {
+        b++;
+        if (occ.has(eid)) h++;
+      }
+    }
+    return b > 0 ? h / b : 0;
+  });
+  const allBiggest = PLAYER_NAMES.map((_, i) => {
+    let best = 0;
+    for (const ep of state.episodes) {
+      ensureEpisodeMaps(ep.id);
+      const occ = new Set(state.occurred[ep.id] || []);
+      for (const eid of (state.bets[ep.id]?.[i] || []).filter(Boolean)) {
+        if (!occ.has(eid)) continue;
+        const ev = (ep.events || []).find((e) => e.id === eid);
+        if (ev && (Number(ev.odds) || 0) > best) best = Number(ev.odds);
+      }
+    }
+    return best;
+  });
+  const allElimCorrect = PLAYER_NAMES.map((_, i) => {
+    let c = 0;
+    for (const ep of state.episodes) {
+      ensureEpisodeMaps(ep.id);
+      ensureEliminatedArray(ep);
+      const pk = state.eliminationBets[ep.id]?.[i];
+      if (pk && (ep.eliminated || []).includes(pk)) c++;
+    }
+    return c;
+  });
+
+  function rankOf(arr, idx) {
+    const sorted = [...arr].map((v, i) => ({ v, i })).sort((a, b) => b.v - a.v);
+    let r = 1;
+    for (let j = 0; j < sorted.length; j++) {
+      if (j > 0 && sorted[j].v < sorted[j - 1].v) r = j + 1;
+      if (sorted[j].i === idx) return r;
+    }
+    return PLAYER_COUNT;
+  }
+
+  comparisons.hitRateRank = rankOf(allHitRates, p);
+  comparisons.totalPointsRank = rankOf(grandTotals, p);
+  comparisons.biggestWinRank = rankOf(allBiggest, p);
+  comparisons.streakRank = rankOf(streaks.map((s) => s.currentStreak), p);
+  comparisons.eliminationRank = rankOf(allElimCorrect, p);
+
+  const seasonRes = state.seasonResults || {};
+  const seasonPicks = state.seasonBets?.[p] || {};
+  let seasonResolved = 0, seasonWon = 0;
+  for (const cat of SEASON_BET_CATEGORIES) {
+    if (seasonRes[cat.key]) {
+      seasonResolved++;
+      if (seasonBetMatches(cat, seasonPicks[cat.key], seasonRes[cat.key])) seasonWon++;
+    }
+  }
+
+  const notesWritten = Object.keys(state.contestantNotes || {}).filter((k) => {
+    const n = state.contestantNotes[k];
+    return n?.lastEditedBy === PLAYER_NAMES[p] && n?.text;
+  }).length;
+
+  return {
+    overview: { totalPoints: grandTotals[p], rank, hitRate, biggestWin, bestNight, currentStreak: streaks[p]?.currentStreak || 0 },
+    byCategory,
+    weeklyTrend,
+    topEvents: { mostBet, mostSuccessful },
+    eliminations: { totalBets: elimTotal, correctBets: elimCorrect, hitRate: elimTotal > 0 ? Math.round((elimCorrect / elimTotal) * 100) : null, pointsEarned: elimPts, longestStreak: elimLongest, correctContestants },
+    comparisons,
+    seasonSummary: seasonResolved > 0 ? `Season bets: ${seasonWon}/${seasonResolved} resolved in your favor` : null,
+    notesWritten,
+    totalBets,
+  };
+}
+
+function renderMyStats() {
+  const headerRoot = document.getElementById("my-stats-header");
+  const barRoot = document.getElementById("my-stats-player-bar");
+  const contentRoot = document.getElementById("my-stats-content");
+  if (!headerRoot || !barRoot || !contentRoot) return;
+
+  if (selectedStatsPlayer < 0) {
+    const idx = PLAYER_NAMES.indexOf(currentPlayer);
+    selectedStatsPlayer = idx >= 0 ? idx : 0;
+  }
+
+  barRoot.innerHTML = "";
+  const ovBtn = document.createElement("button");
+  ovBtn.type = "button";
+  ovBtn.className = "ms-player-btn" + (statsViewMode === "overview" ? " ms-player-btn--active" : "");
+  ovBtn.textContent = "All players";
+  ovBtn.addEventListener("click", () => { statsViewMode = "overview"; renderMyStats(); });
+  barRoot.append(ovBtn);
+
+  const sep = document.createElement("span");
+  sep.className = "ms-bar-sep";
+  barRoot.append(sep);
+
+  PLAYER_NAMES.forEach((name, i) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ms-player-btn" + (statsViewMode === "player" && selectedStatsPlayer === i ? " ms-player-btn--active" : "");
+    btn.textContent = name;
+    btn.addEventListener("click", () => { statsViewMode = "player"; selectedStatsPlayer = i; renderMyStats(); });
+    barRoot.append(btn);
+  });
+
+  headerRoot.innerHTML = "";
+  contentRoot.innerHTML = "";
+
+  if (statsViewMode === "overview") {
+    const h2 = document.createElement("h2");
+    h2.id = "my-stats-heading";
+    h2.className = "panel__title";
+    h2.textContent = "Stats overview";
+    headerRoot.append(h2);
+    renderAllPlayersOverview(contentRoot);
+  } else {
+    const p = selectedStatsPlayer;
+    const h2 = document.createElement("h2");
+    h2.id = "my-stats-heading";
+    h2.className = "panel__title";
+    h2.textContent = `${PLAYER_NAMES[p]}'s stats`;
+    headerRoot.append(h2);
+    renderSinglePlayerStats(contentRoot, p);
+  }
+}
+
+function renderAllPlayersOverview(root) {
+  const allStats = PLAYER_NAMES.map((_, i) => computePlayerStats(i));
+  const anyBets = allStats.some((s) => s.totalBets > 0);
+  if (!anyBets) {
+    const empty = document.createElement("div");
+    empty.className = "ms-empty";
+    empty.innerHTML = "<p>No bets placed yet. Stats will appear once players start betting.</p>";
+    root.append(empty);
+    return;
+  }
+
+  const section = document.createElement("div");
+  section.className = "ms-section ms-matchday";
+
+  const statRows = [
+    { label: "Total points", fn: (s) => s.overview.totalPoints.toFixed(1), cmp: "high" },
+    { label: "Rank", fn: (s) => ordinalShort(s.overview.rank), raw: (s) => s.overview.rank, cmp: "low" },
+    { label: "Hit rate", fn: (s) => s.overview.hitRate != null ? `${s.overview.hitRate}%` : "\u2014", raw: (s) => s.overview.hitRate ?? -1, cmp: "high" },
+    { label: "Bets placed", fn: (s) => String(s.totalBets), cmp: "high" },
+    { label: "Current streak", fn: (s) => s.overview.currentStreak > 0 ? `\uD83D\uDD25 ${s.overview.currentStreak}` : "0", raw: (s) => s.overview.currentStreak, cmp: "high" },
+    { label: "Biggest win", fn: (s) => s.overview.biggestWin.odds > 0 ? `${s.overview.biggestWin.odds}\u00D7` : "\u2014", raw: (s) => s.overview.biggestWin.odds, cmp: "high" },
+    { label: "Best night", fn: (s) => s.overview.bestNight.pts > 0 ? `${s.overview.bestNight.pts.toFixed(1)}` : "\u2014", raw: (s) => s.overview.bestNight.pts, cmp: "high" },
+    { label: "Elim. correct", fn: (s) => `${s.eliminations.correctBets}/${s.eliminations.totalBets}`, raw: (s) => s.eliminations.correctBets, cmp: "high" },
+    { label: "Elim. hit rate", fn: (s) => s.eliminations.hitRate != null ? `${s.eliminations.hitRate}%` : "\u2014", raw: (s) => s.eliminations.hitRate ?? -1, cmp: "high" },
+  ];
+
+  const nameRow = document.createElement("div");
+  nameRow.className = "ms-match-row ms-match-row--header";
+  const corner = document.createElement("span");
+  corner.className = "ms-match-cell ms-match-cell--label";
+  nameRow.append(corner);
+  PLAYER_NAMES.forEach((name) => {
+    const cell = document.createElement("span");
+    cell.className = "ms-match-cell ms-match-cell--name";
+    cell.textContent = name;
+    nameRow.append(cell);
+  });
+  section.append(nameRow);
+
+  for (const sr of statRows) {
+    const row = document.createElement("div");
+    row.className = "ms-match-row";
+    const lbl = document.createElement("span");
+    lbl.className = "ms-match-cell ms-match-cell--label";
+    lbl.textContent = sr.label;
+    row.append(lbl);
+
+    const rawFn = sr.raw || ((s) => parseFloat(sr.fn(s)) || 0);
+    const rawVals = allStats.map(rawFn);
+    const bestVal = sr.cmp === "high" ? Math.max(...rawVals) : Math.min(...rawVals.filter((v) => v >= 0));
+
+    PLAYER_NAMES.forEach((_, i) => {
+      const cell = document.createElement("span");
+      cell.className = "ms-match-cell";
+      cell.textContent = sr.fn(allStats[i]);
+      if (rawVals[i] === bestVal && bestVal > 0) cell.classList.add("ms-match-cell--best");
+      row.append(cell);
+    });
+    section.append(row);
+  }
+
+  root.append(section);
+
+  if (allStats.some((s) => s.byCategory.length > 0)) {
+    const catSection = document.createElement("div");
+    catSection.className = "ms-section";
+    const catH = document.createElement("h3");
+    catH.className = "ms-section__title";
+    catH.textContent = "Hit rate by category";
+    catSection.append(catH);
+
+    const cats = (window.BET_CATEGORIES || []);
+    for (const cat of cats) {
+      const rates = allStats.map((s) => {
+        const c = s.byCategory.find((b) => b.id === cat.id);
+        return c || { bet: 0, hit: 0, hitRate: null };
+      });
+      if (rates.every((r) => r.bet === 0)) continue;
+
+      const catRow = document.createElement("div");
+      catRow.className = "ms-cat-compare";
+      const catLabel = document.createElement("span");
+      catLabel.className = "ms-cat-compare__label";
+      catLabel.textContent = cat.label;
+      catRow.append(catLabel);
+
+      const barsWrap = document.createElement("div");
+      barsWrap.className = "ms-cat-compare__bars";
+      const maxBet = Math.max(...rates.map((r) => r.bet), 1);
+
+      PLAYER_NAMES.forEach((name, i) => {
+        const r = rates[i];
+        const col = document.createElement("div");
+        col.className = "ms-cat-compare__col";
+        const bar = document.createElement("div");
+        bar.className = "ms-cat-compare__bar";
+        bar.style.width = r.bet > 0 ? `${Math.max(8, ((r.hitRate ?? 0) / 100) * 100)}%` : "0%";
+        const info = document.createElement("span");
+        info.className = "ms-cat-compare__info";
+        info.textContent = r.bet > 0 ? `${r.hitRate}%` : "\u2014";
+        col.append(bar, info);
+        barsWrap.append(col);
+      });
+
+      catRow.append(barsWrap);
+      catSection.append(catRow);
+    }
+
+    const legend = document.createElement("div");
+    legend.className = "ms-cat-compare__legend";
+    PLAYER_NAMES.forEach((name, i) => {
+      const sp = document.createElement("span");
+      sp.className = "ms-cat-compare__legend-item";
+      sp.dataset.player = i;
+      sp.textContent = name;
+      legend.append(sp);
+    });
+    catSection.append(legend);
+
+    root.append(catSection);
+  }
+
+  const hint = document.createElement("p");
+  hint.className = "panel__hint";
+  hint.style.textAlign = "center";
+  hint.style.marginTop = "1rem";
+  hint.textContent = "Click a player name above to see their detailed stats.";
+  root.append(hint);
+}
+
+function renderSinglePlayerStats(root, p) {
+  const stats = computePlayerStats(p);
+
+  if (stats.totalBets === 0) {
+    const empty = document.createElement("div");
+    empty.className = "ms-empty";
+    empty.innerHTML = `<p>No bets placed yet. Place bets on an episode to see stats.</p>`;
+    root.append(empty);
+    return;
+  }
+
+  renderStatsOverview(root, stats);
+  renderStatsByCategory(root, stats);
+  renderStatsWeeklyTrend(root, stats);
+  renderStatsFavoriteEvents(root, stats);
+  renderStatsEliminations(root, stats);
+  renderStatsComparisons(root, stats);
+
+  if (stats.seasonSummary) {
+    const p2 = document.createElement("p");
+    p2.className = "ms-season-summary";
+    p2.textContent = stats.seasonSummary;
+    root.append(p2);
+  }
+  if (stats.notesWritten > 0) {
+    const p3 = document.createElement("p");
+    p3.className = "ms-notes-summary";
+    p3.textContent = `Written notes on ${stats.notesWritten} contestant${stats.notesWritten !== 1 ? "s" : ""}.`;
+    root.append(p3);
+  }
+}
+
+function renderStatsOverview(root, stats) {
+  const section = document.createElement("div");
+  section.className = "ms-section";
+  const h = document.createElement("h3");
+  h.className = "ms-section__title";
+  h.textContent = "Overview";
+  section.append(h);
+
+  const grid = document.createElement("div");
+  grid.className = "ms-metric-grid";
+
+  const o = stats.overview;
+  const ordinal = ["—", "1st", "2nd", "3rd", "4th"];
+  const cards = [
+    { label: "Total points", value: o.totalPoints.toFixed(1) },
+    { label: "Rank", value: ordinal[o.rank] || `${o.rank}th` },
+    { label: "Hit rate", value: o.hitRate != null ? `${o.hitRate}%` : "—" },
+    { label: "Biggest win", value: o.biggestWin.odds > 0 ? `${o.biggestWin.odds}\u00D7` : "—", sub: o.biggestWin.odds > 0 ? o.biggestWin.text : null },
+    { label: "Best night", value: o.bestNight.pts > 0 ? `${o.bestNight.pts.toFixed(1)} pts` : "—", sub: o.bestNight.pts > 0 ? o.bestNight.label : null },
+    { label: "Current streak", value: o.currentStreak > 0 ? `\uD83D\uDD25 ${o.currentStreak}` : "0" },
+  ];
+  for (const c of cards) {
+    const card = document.createElement("div");
+    card.className = "ms-metric-card";
+    const lbl = document.createElement("span");
+    lbl.className = "ms-metric-card__label";
+    lbl.textContent = c.label;
+    const val = document.createElement("span");
+    val.className = "ms-metric-card__value";
+    val.textContent = c.value;
+    card.append(lbl, val);
+    if (c.sub) {
+      const sub = document.createElement("span");
+      sub.className = "ms-metric-card__sub";
+      sub.textContent = c.sub;
+      card.append(sub);
+    }
+    grid.append(card);
+  }
+  section.append(grid);
+  root.append(section);
+}
+
+function renderStatsByCategory(root, stats) {
+  if (stats.byCategory.length === 0) return;
+  const section = document.createElement("div");
+  section.className = "ms-section";
+  const h = document.createElement("h3");
+  h.className = "ms-section__title";
+  h.textContent = "Hit rate by category";
+  section.append(h);
+
+  const list = document.createElement("div");
+  list.className = "ms-cat-bars";
+  const maxRate = Math.max(...stats.byCategory.map((c) => c.hitRate ?? 0), 1);
+
+  stats.byCategory.forEach((c, i) => {
+    const row = document.createElement("div");
+    row.className = "ms-cat-row";
+    const label = document.createElement("span");
+    label.className = "ms-cat-row__label";
+    label.textContent = c.category;
+    const barWrap = document.createElement("div");
+    barWrap.className = "ms-cat-row__bar-wrap";
+    const bar = document.createElement("div");
+    bar.className = "ms-cat-row__bar";
+    const pct = c.hitRate ?? 0;
+    bar.style.width = `${Math.max(2, (pct / 100) * 100)}%`;
+    if (i < 2) bar.classList.add("ms-cat-row__bar--top");
+    else if (i >= stats.byCategory.length - 2 && stats.byCategory.length > 4) bar.classList.add("ms-cat-row__bar--bottom");
+    barWrap.append(bar);
+    const info = document.createElement("span");
+    info.className = "ms-cat-row__info";
+    const sampleNote = c.bet === 1 ? " (small sample)" : "";
+    info.textContent = `${c.hit} of ${c.bet} hit (${pct}%)${sampleNote}`;
+    row.append(label, barWrap, info);
+    list.append(row);
+  });
+  section.append(list);
+  root.append(section);
+}
+
+function renderStatsWeeklyTrend(root, stats) {
+  const closedEps = stats.weeklyTrend.filter((_, i) => isEpisodeClosed(state.episodes[i]));
+  if (closedEps.length < 2) {
+    const section = document.createElement("div");
+    section.className = "ms-section";
+    const h = document.createElement("h3");
+    h.className = "ms-section__title";
+    h.textContent = "Points per week";
+    const hint = document.createElement("p");
+    hint.className = "panel__hint";
+    hint.textContent = "Available after at least 2 closed episodes.";
+    section.append(h, hint);
+    root.append(section);
+    return;
+  }
+  const section = document.createElement("div");
+  section.className = "ms-section";
+  const h = document.createElement("h3");
+  h.className = "ms-section__title";
+  h.textContent = "Points per week";
+  section.append(h);
+
+  const data = closedEps;
+  const W = 600, H = 200, pad = { top: 20, right: 20, bottom: 30, left: 40 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const maxY = Math.max(...data.map((d) => Math.max(d.points, d.groupAvg)), 1);
+
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.setAttribute("class", "ms-chart");
+  svg.setAttribute("role", "img");
+
+  const x = (i) => pad.left + (i / (data.length - 1 || 1)) * chartW;
+  const y = (v) => pad.top + chartH - (v / maxY) * chartH;
+
+  const avgPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.groupAvg).toFixed(1)}`).join("");
+  const avgLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  avgLine.setAttribute("d", avgPath);
+  avgLine.setAttribute("class", "ms-chart__avg-line");
+  svg.append(avgLine);
+
+  const playerPath = data.map((d, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(d.points).toFixed(1)}`).join("");
+  const playerLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  playerLine.setAttribute("d", playerPath);
+  playerLine.setAttribute("class", "ms-chart__player-line");
+  svg.append(playerLine);
+
+  data.forEach((d, i) => {
+    const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    dot.setAttribute("cx", x(i).toFixed(1));
+    dot.setAttribute("cy", y(d.points).toFixed(1));
+    dot.setAttribute("r", "4");
+    dot.setAttribute("class", "ms-chart__dot");
+    const title = document.createElementNS("http://www.w3.org/2000/svg", "title");
+    title.textContent = `${d.weekLabel}: ${d.points.toFixed(1)} pts`;
+    dot.append(title);
+    svg.append(dot);
+  });
+
+  for (let i = 0; i < data.length; i++) {
+    const lbl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    lbl.setAttribute("x", x(i).toFixed(1));
+    lbl.setAttribute("y", H - 5);
+    lbl.setAttribute("class", "ms-chart__x-label");
+    lbl.textContent = data[i].weekLabel;
+    svg.append(lbl);
+  }
+
+  const legend = document.createElement("div");
+  legend.className = "ms-chart-legend";
+  legend.innerHTML = '<span class="ms-chart-legend__player">\u25CF You</span> <span class="ms-chart-legend__avg">\u25CF Group avg</span>';
+  section.append(svg, legend);
+  root.append(section);
+}
+
+function renderStatsFavoriteEvents(root, stats) {
+  const { mostBet, mostSuccessful } = stats.topEvents;
+  if (mostBet.length === 0 && mostSuccessful.length === 0) return;
+  const section = document.createElement("div");
+  section.className = "ms-section";
+  const h = document.createElement("h3");
+  h.className = "ms-section__title";
+  h.textContent = "Favorite events";
+  section.append(h);
+
+  const cols = document.createElement("div");
+  cols.className = "ms-tables-row";
+
+  function makeTable(title, data) {
+    const wrap = document.createElement("div");
+    wrap.className = "ms-table-wrap";
+    const th = document.createElement("h4");
+    th.className = "ms-table-wrap__title";
+    th.textContent = title;
+    wrap.append(th);
+    if (data.length === 0) { const p = document.createElement("p"); p.className = "panel__hint"; p.textContent = "Not enough data yet."; wrap.append(p); return wrap; }
+    const tbl = document.createElement("table");
+    tbl.className = "ms-table";
+    tbl.innerHTML = "<thead><tr><th>Event</th><th>Bets</th><th>Hits</th><th>Rate</th></tr></thead>";
+    const tbody = document.createElement("tbody");
+    for (const e of data) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td class="ms-table__event">${e.text}</td><td>${e.bet}</td><td>${e.hit}</td><td>${e.hitRate}%</td>`;
+      tbody.append(tr);
+    }
+    tbl.append(tbody);
+    wrap.append(tbl);
+    return wrap;
+  }
+
+  cols.append(makeTable("Most-bet events", mostBet));
+  cols.append(makeTable("Most successful events", mostSuccessful));
+  section.append(cols);
+  root.append(section);
+}
+
+function renderStatsEliminations(root, stats) {
+  const section = document.createElement("div");
+  section.className = "ms-section";
+  const h = document.createElement("h3");
+  h.className = "ms-section__title";
+  h.textContent = "Elimination skills";
+  section.append(h);
+  const e = stats.eliminations;
+  if (e.totalBets === 0) {
+    const hint = document.createElement("p");
+    hint.className = "panel__hint";
+    hint.textContent = "No elimination picks placed yet.";
+    section.append(hint);
+    root.append(section);
+    return;
+  }
+  const grid = document.createElement("div");
+  grid.className = "ms-metric-grid ms-metric-grid--small";
+  const items = [
+    { label: "Picks placed", value: e.totalBets },
+    { label: "Correct", value: e.correctBets },
+    { label: "Hit rate", value: e.hitRate != null ? `${e.hitRate}%` : "—" },
+    { label: "Points earned", value: e.pointsEarned.toFixed(1) },
+    { label: "Longest streak", value: e.longestStreak },
+  ];
+  for (const item of items) {
+    const card = document.createElement("div");
+    card.className = "ms-metric-card ms-metric-card--sm";
+    const lbl = document.createElement("span");
+    lbl.className = "ms-metric-card__label";
+    lbl.textContent = item.label;
+    const val = document.createElement("span");
+    val.className = "ms-metric-card__value";
+    val.textContent = item.value;
+    card.append(lbl, val);
+    grid.append(card);
+  }
+  section.append(grid);
+  if (e.correctContestants.length > 0) {
+    const sub = document.createElement("div");
+    sub.className = "ms-elim-correct";
+    const subH = document.createElement("p");
+    subH.className = "ms-elim-correct__title";
+    subH.textContent = "Correctly called:";
+    sub.append(subH);
+    const chips = document.createElement("div");
+    chips.className = "ms-elim-correct__chips";
+    for (const c of e.correctContestants) {
+      const chip = document.createElement("div");
+      chip.className = "ms-elim-chip";
+      if (c.photoUrl) {
+        const img = document.createElement("img");
+        img.src = c.photoUrl;
+        img.alt = c.name;
+        img.className = "ms-elim-chip__photo";
+        img.loading = "lazy";
+        photoFallback(img, c.name);
+        chip.append(img);
+      } else {
+        const ini = document.createElement("div");
+        ini.className = "photo-fallback ms-elim-chip__fb";
+        ini.textContent = c.name.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
+        chip.append(ini);
+      }
+      const nm = document.createElement("span");
+      nm.textContent = c.name;
+      chip.append(nm);
+      chips.append(chip);
+    }
+    sub.append(chips);
+    section.append(sub);
+  }
+  root.append(section);
+}
+
+function renderStatsComparisons(root, stats) {
+  const section = document.createElement("div");
+  section.className = "ms-section";
+  const h = document.createElement("h3");
+  h.className = "ms-section__title";
+  h.textContent = "Compared to the others";
+  section.append(h);
+
+  const c = stats.comparisons;
+  const medals = { 1: "\uD83E\uDD47", 2: "\uD83E\uDD48", 3: "\uD83E\uDD49", 4: "\uD83D\uDE43" };
+  const flavor = { 1: "", 2: "", 3: "", 4: " last place on" };
+  const items = [
+    { stat: "hit rate", rank: c.hitRateRank },
+    { stat: "total points", rank: c.totalPointsRank },
+    { stat: "biggest win", rank: c.biggestWinRank },
+    { stat: "current streak", rank: c.streakRank },
+    { stat: "correct eliminations", rank: c.eliminationRank },
+  ];
+  const list = document.createElement("div");
+  list.className = "ms-compare-list";
+  for (const item of items) {
+    const chip = document.createElement("span");
+    chip.className = "ms-compare-chip ms-compare-chip--r" + item.rank;
+    chip.textContent = `${medals[item.rank] || ""} ${item.rank === 4 ? "last place on" : ordinalShort(item.rank) + " on"} ${item.stat}`;
+    list.append(chip);
+  }
+  section.append(list);
+  root.append(section);
+}
+
+function ordinalShort(n) {
+  if (n === 1) return "1st";
+  if (n === 2) return "2nd";
+  if (n === 3) return "3rd";
+  return `${n}th`;
+}
+
 function renderLeaderboard() {
   const epTotals = totalPointsAllEpisodes();
   const sPts = seasonBetPoints();
@@ -2586,11 +3298,14 @@ function renderAllBetsOverview() {
   }
 
   let hasBets = false;
+  const epCount = state.episodes.length;
 
-  for (const ep of state.episodes) {
+  for (let epIdx = 0; epIdx < epCount; epIdx++) {
+    const ep = state.episodes[epIdx];
     ensureEpisodeMaps(ep.id);
     const closed = isEpisodeClosed(ep);
     const elimOdds = eliminationOdds(ep);
+    const outcomes = (state.occurred || {})[ep.id] || [];
 
     const playerRows = [];
     for (let p = 0; p < PLAYER_COUNT; p++) {
@@ -2602,19 +3317,41 @@ function renderAllBetsOverview() {
     if (!playerRows.length) continue;
     hasBets = true;
 
-    const epBlock = document.createElement("div");
-    epBlock.className = "ov-bets-episode";
+    const isLatest = epIdx === epCount - 1;
 
-    const epTitle = document.createElement("h4");
-    epTitle.className = "ov-bets-episode__title";
-    epTitle.textContent = ep.name || `Episode ${state.episodes.indexOf(ep) + 1}`;
+    const details = document.createElement("details");
+    details.className = "ov-bets-episode";
+    if (isLatest) details.open = true;
+
+    const summary = document.createElement("summary");
+    summary.className = "ov-bets-episode__summary";
+
+    const titleText = ep.name || `Episode ${epIdx + 1}`;
+    const totalBets = playerRows.reduce((s, r) => s + r.picks.length + (r.elimPick ? 1 : 0), 0);
+    const playersActive = playerRows.length;
+
+    summary.innerHTML = "";
+    const titleSpan = document.createElement("span");
+    titleSpan.className = "ov-bets-episode__title";
+    titleSpan.textContent = titleText;
+    summary.append(titleSpan);
+
     if (closed) {
       const badge = document.createElement("span");
       badge.className = "ov-bets-episode__closed";
       badge.textContent = "closed";
-      epTitle.append(" ", badge);
+      summary.append(badge);
     }
-    epBlock.append(epTitle);
+
+    const meta = document.createElement("span");
+    meta.className = "ov-bets-episode__meta";
+    meta.textContent = `${playersActive} player${playersActive !== 1 ? "s" : ""} \u00B7 ${totalBets} bet${totalBets !== 1 ? "s" : ""}`;
+    summary.append(meta);
+
+    details.append(summary);
+
+    const body = document.createElement("div");
+    body.className = "ov-bets-episode__body";
 
     for (const { p, picks, elimPick } of playerRows) {
       const playerSection = document.createElement("div");
@@ -2641,6 +3378,10 @@ function renderAllBetsOverview() {
         oddsLabel.className = "ov-bet-row__odds";
         oddsLabel.textContent = `${Number(ev.odds).toFixed(1)}\u00D7`;
 
+        if (closed && outcomes.includes(eventId)) {
+          row.classList.add("ov-bet-row--hit");
+        }
+
         row.append(label, oddsLabel);
         betList.append(row);
       }
@@ -2662,15 +3403,21 @@ function renderAllBetsOverview() {
         tag.className = "ov-bet-row__tag";
         tag.textContent = "elimination";
 
-        row.append(label, oddsLabel, tag);
+        const eliminated = (state.episodes[epIdx]?.eliminated || []);
+        if (closed && eliminated.includes(elimPick)) {
+          row.classList.add("ov-bet-row--hit");
+        }
+
+        row.append(tag, label, oddsLabel);
         betList.append(row);
       }
 
       playerSection.append(betList);
-      epBlock.append(playerSection);
+      body.append(playerSection);
     }
 
-    root.append(epBlock);
+    details.append(body);
+    root.append(details);
   }
 
   if (!hasBets) {
@@ -3413,6 +4160,7 @@ function renderAll() {
   safe(populateCustomCategorySelect, "populateCustomCategorySelect");
   safe(renderEventBank, "renderEventBank");
   safe(renderWeeklyRecap, "renderWeeklyRecap");
+  safe(renderMyStats, "renderMyStats");
   safe(renderUpcomingDeadlineStrip, "renderUpcomingDeadlineStrip");
   safe(checkNewRecapBanner, "checkNewRecapBanner");
 }
