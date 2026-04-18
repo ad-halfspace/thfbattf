@@ -8,15 +8,15 @@ const EVENT_BANK = "event-bank";
 const SEASON_BETS = "season-bets";
 const WEEKLY_RECAP = "weekly-recap";
 
-const EXPECTED_SEASON_LENGTH = 25;
+const EXPECTED_SEASON_LENGTH = 30;
 
 const SEASON_BET_CATEGORIES = [
-  { key: "miesWinner",      label: "Mie\u2019s final rose",          desc: "Who does Mie pick in the finale?",                points: 20 },
-  { key: "sofiesWinner",    label: "Sofie\u2019s final rose",        desc: "Who does Sofie pick in the finale?",              points: 20 },
-  { key: "firstKiss",       label: "First couple to kiss",           desc: "Which contestant shares the first kiss?",         points: 10 },
-  { key: "firstToCry",      label: "First to cry",                   desc: "Which contestant cries first on screen?",         points: 8 },
-  { key: "firstEliminated", label: "First eliminated",               desc: "Who is the very first contestant sent home?",     points: 12 },
-  { key: "darkHorse",       label: "Dark horse (out after ep. 5)",   desc: "Pick someone eliminated after episode 5.",        points: 15 },
+  { key: "mie-winner",             label: "Mies sidste rose",                 desc: "Hvem ender Mie med at v\u00E6lge?",                                                  points: 20, inputType: "contestant" },
+  { key: "sofie-winner",           label: "Sofies sidste rose",               desc: "Hvem ender Sofie med at v\u00E6lge?",                                                points: 20, inputType: "contestant" },
+  { key: "first-kiss",             label: "F\u00F8rste bejler til at kysse med en bachelorette", desc: "Navngiv den specifikke bejler.",                                  points: 12, inputType: "contestant" },
+  { key: "episode-first-kiss",     label: "Hvilken episode sker f\u00F8rste kys?", desc: "V\u00E6lg episodenummer (1\u2013N). T\u00E6ttest p\u00E5 vinder.",             points: 12, inputType: "episode" },
+  { key: "bachelorette-quits",     label: "Forlader \u00E9n af bachelorettes s\u00E6sonen f\u00F8r tid?", desc: "Usandsynligt men muligt. Ja/nej.",                              points: 20, inputType: "yesno" },
+  { key: "first-bachelorette-cry", label: "F\u00F8rste bachelorette til at gr\u00E6de", desc: "V\u00E6lg Mie eller Sofie.",                                              points: 6,  inputType: "bachelorette" },
 ];
 
 /* ── Firebase ── */
@@ -83,10 +83,38 @@ function groupByCategory(events) {
   return [...groups.entries()].filter(([, items]) => items.length > 0);
 }
 
+function allCast() {
+  const seen = new Set(CAST_BA4_2026.map((c) => c.name.toLowerCase()));
+  const extras = (state.customCast || []).filter((c) => !seen.has(c.name.toLowerCase()));
+  return [...CAST_BA4_2026, ...extras];
+}
+
 function castPhotoByName(name) {
   const n = name.trim().toLowerCase();
-  const match = CAST_BA4_2026.find((c) => c.name.toLowerCase() === n);
+  const match = allCast().find((c) => c.name.toLowerCase() === n);
   return match?.photo || null;
+}
+
+function ensureInCast(name, photo) {
+  const n = name.trim().toLowerCase();
+  if (CAST_BA4_2026.some((c) => c.name.toLowerCase() === n)) return;
+  if (!Array.isArray(state.customCast)) state.customCast = [];
+  if (state.customCast.some((c) => c.name.toLowerCase() === n)) return;
+  state.customCast.push({ name: name.trim(), photo: photo || "", occupation: "" });
+}
+
+function photoFallback(img, name) {
+  const swap = () => {
+    if (img._swapped) return;
+    img._swapped = true;
+    const ini = name.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
+    const el = document.createElement("div");
+    el.className = "photo-fallback";
+    el.textContent = ini;
+    if (img.parentNode) img.replaceWith(el);
+  };
+  img.onerror = swap;
+  setTimeout(() => { if (!img.complete || !img.naturalWidth) swap(); }, 3000);
 }
 
 /** Bachelorette sæson 4 (2026), TV 2 — pressekit */
@@ -316,6 +344,8 @@ function defaultState() {
     seasonBetsLocked: false,
     /** { contestantName: { text, lastEditedBy } } */
     contestantNotes: {},
+    /** User-added contestants [{ name, photo?, age?, occupation? }] */
+    customCast: [],
   };
 }
 
@@ -355,6 +385,7 @@ function loadState() {
     if (!result.seasonResults || typeof result.seasonResults !== "object") result.seasonResults = {};
     if (typeof result.seasonBetsLocked !== "boolean") result.seasonBetsLocked = false;
     if (!result.contestantNotes || typeof result.contestantNotes !== "object") result.contestantNotes = {};
+    if (!Array.isArray(result.customCast)) result.customCast = [];
     for (const ep of result.episodes) {
       if (!Array.isArray(ep.events)) ep.events = [];
       if (!Array.isArray(ep.eliminated)) ep.eliminated = [];
@@ -1024,20 +1055,55 @@ function renderOverview() {
   if (!root) return;
   if (activeNoteEditor) return;
   root.innerHTML = "";
-  CAST_BA4_2026.forEach((c) => {
+  allCast().forEach((c) => {
     const card = document.createElement("article");
     card.className = "cast-card";
     const fig = document.createElement("div");
     fig.className = "cast-card__photo-wrap";
-    const img = document.createElement("img");
-    img.className = "cast-card__photo";
-    img.src = c.photo;
-    img.alt = `Portr\u00E6tfoto \u2014 ${c.name}`;
-    img.loading = "lazy";
-    img.decoding = "async";
-    img.width = 480;
-    img.height = 320;
-    fig.append(img);
+    if (c.photo) {
+      const img = document.createElement("img");
+      img.className = "cast-card__photo";
+      img.src = c.photo;
+      img.alt = `Portr\u00E6tfoto \u2014 ${c.name}`;
+      img.loading = "lazy";
+      img.decoding = "async";
+      img.width = 480;
+      img.height = 320;
+      photoFallback(img, c.name);
+      fig.append(img);
+    } else {
+      const fb = document.createElement("div");
+      fb.className = "photo-fallback";
+      fb.textContent = c.name.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
+      fig.append(fb);
+    }
+    const editPhoto = document.createElement("button");
+    editPhoto.type = "button";
+    editPhoto.className = "cast-card__edit-photo";
+    editPhoto.textContent = c.photo ? "\uD83D\uDCF7" : "+ foto";
+    editPhoto.addEventListener("click", () => {
+      const url = prompt(`Photo URL for ${c.name}:`, c.photo || "");
+      if (url === null) return;
+      const trimmed = url.trim();
+      const n = c.name.toLowerCase();
+      const builtIn = CAST_BA4_2026.find((b) => b.name.toLowerCase() === n);
+      if (builtIn) {
+        if (!Array.isArray(state.customCast)) state.customCast = [];
+        const existing = state.customCast.find((x) => x.name.toLowerCase() === n);
+        if (existing) {
+          existing.photo = trimmed;
+        } else {
+          state.customCast.push({ name: builtIn.name, photo: trimmed, age: builtIn.age, occupation: builtIn.occupation });
+        }
+        builtIn.photo = trimmed;
+      } else {
+        const custom = (state.customCast || []).find((x) => x.name.toLowerCase() === n);
+        if (custom) custom.photo = trimmed;
+      }
+      saveState();
+      renderOverview();
+    });
+    fig.append(editPhoto);
     const body = document.createElement("div");
     body.className = "cast-card__body";
     const h = document.createElement("h3");
@@ -1045,7 +1111,7 @@ function renderOverview() {
     h.textContent = c.name;
     const meta = document.createElement("p");
     meta.className = "cast-card__meta";
-    meta.textContent = `${c.age} \u00E5r`;
+    meta.textContent = c.age ? `${c.age} \u00E5r` : "";
     const job = document.createElement("p");
     job.className = "cast-card__job";
     job.textContent = c.occupation;
@@ -1083,6 +1149,24 @@ function renderOverview() {
       noteWrap.append(preview, saving);
     }
     body.append(noteWrap);
+
+    const isCustom = !CAST_BA4_2026.some((b) => b.name.toLowerCase() === c.name.toLowerCase());
+    if (isCustom) {
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "cast-card__delete";
+      del.setAttribute("aria-label", `Remove ${c.name}`);
+      del.textContent = "\u00D7";
+      del.addEventListener("click", () => {
+        if (!confirm(`Remove ${c.name} from the cast?`)) return;
+        state.customCast = (state.customCast || []).filter(
+          (x) => x.name.toLowerCase() !== c.name.toLowerCase()
+        );
+        saveState();
+        renderOverview();
+      });
+      card.append(del);
+    }
 
     card.append(fig, body);
     root.append(card);
@@ -1672,6 +1756,7 @@ function renderGuys() {
       img.alt = g.name;
       img.loading = "lazy";
       img.decoding = "async";
+      photoFallback(img, g.name);
       chip.append(img);
     } else {
       const ini = document.createElement("span");
@@ -2019,6 +2104,7 @@ function renderEliminations() {
       img.decoding = "async";
       img.width = 240;
       img.height = 160;
+      photoFallback(img, g.name);
       photoWrap.append(img);
     } else {
       const initials = document.createElement("span");
@@ -2155,35 +2241,26 @@ function renderStreakLeaders() {
 
 /* ── Season bets helpers ── */
 
+function seasonBetMatches(cat, pick, actual) {
+  if (!pick || !actual) return false;
+  if (cat.inputType === "episode") {
+    return String(pick) === String(actual);
+  }
+  return pick === actual;
+}
+
 function seasonBetPoints() {
   const pts = PLAYER_NAMES.map(() => 0);
   const res = state.seasonResults || {};
   for (let p = 0; p < PLAYER_COUNT; p++) {
     const picks = state.seasonBets?.[p] || {};
     for (const cat of SEASON_BET_CATEGORIES) {
-      const pick = picks[cat.key];
-      const actual = res[cat.key];
-      if (pick && actual && pick === actual) {
-        if (cat.key === "darkHorse") {
-          if (isDarkHorseValid(actual)) pts[p] += cat.points;
-        } else {
-          pts[p] += cat.points;
-        }
+      if (seasonBetMatches(cat, picks[cat.key], res[cat.key])) {
+        pts[p] += cat.points;
       }
     }
   }
   return pts;
-}
-
-function isDarkHorseValid(name) {
-  for (const ep of state.episodes) {
-    ensureEliminatedArray(ep);
-    if ((ep.eliminated || []).includes(name)) {
-      const idx = state.episodes.indexOf(ep);
-      return idx >= 5;
-    }
-  }
-  return true;
 }
 
 function seasonBetMaxPoints() {
@@ -2191,12 +2268,83 @@ function seasonBetMaxPoints() {
 }
 
 function castNames() {
-  return CAST_BA4_2026.map((c) => c.name);
+  return allCast().map((c) => c.name);
+}
+
+function buildSeasonInput(cat, currentVal, locked, onChange) {
+  const type = cat.inputType || "contestant";
+  if (type === "contestant") {
+    const sel = document.createElement("select");
+    sel.className = "input season-card__select";
+    sel.disabled = locked;
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = "\u2014 V\u00E6lg \u2014";
+    sel.append(ph);
+    for (const n of castNames()) {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = n;
+      sel.append(opt);
+    }
+    sel.value = currentVal || "";
+    sel.addEventListener("change", () => onChange(sel.value || null));
+    return sel;
+  }
+  if (type === "episode") {
+    const inp = document.createElement("input");
+    inp.type = "number";
+    inp.className = "input season-card__select season-card__select--narrow";
+    inp.min = 1;
+    inp.max = Math.max(state.episodes.length, EXPECTED_SEASON_LENGTH);
+    inp.step = 1;
+    inp.placeholder = "Ep.";
+    inp.disabled = locked;
+    inp.value = currentVal || "";
+    inp.addEventListener("change", () => onChange(inp.value ? String(inp.value) : null));
+    return inp;
+  }
+  if (type === "yesno") {
+    const sel = document.createElement("select");
+    sel.className = "input season-card__select";
+    sel.disabled = locked;
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = "\u2014 V\u00E6lg \u2014";
+    sel.append(ph);
+    for (const v of ["Ja", "Nej"]) {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      sel.append(opt);
+    }
+    sel.value = currentVal || "";
+    sel.addEventListener("change", () => onChange(sel.value || null));
+    return sel;
+  }
+  if (type === "bachelorette") {
+    const sel = document.createElement("select");
+    sel.className = "input season-card__select";
+    sel.disabled = locked;
+    const ph = document.createElement("option");
+    ph.value = "";
+    ph.textContent = "\u2014 V\u00E6lg \u2014";
+    sel.append(ph);
+    for (const v of ["Mie", "Sofie"]) {
+      const opt = document.createElement("option");
+      opt.value = v;
+      opt.textContent = v;
+      sel.append(opt);
+    }
+    sel.value = currentVal || "";
+    sel.addEventListener("change", () => onChange(sel.value || null));
+    return sel;
+  }
+  return document.createElement("span");
 }
 
 function renderSeasonBets() {
   const locked = !!state.seasonBetsLocked;
-  const names = castNames();
 
   const lockBar = document.getElementById("season-bets-lock-bar");
   if (lockBar) {
@@ -2255,27 +2403,9 @@ function renderSeasonBets() {
         label.className = "season-card__player-name";
         label.textContent = PLAYER_NAMES[p];
 
-        const sel = document.createElement("select");
-        sel.className = "input season-card__select";
-        sel.disabled = locked;
-
-        const placeholder = document.createElement("option");
-        placeholder.value = "";
-        placeholder.textContent = "— Pick —";
-        sel.append(placeholder);
-
-        for (const n of names) {
-          const opt = document.createElement("option");
-          opt.value = n;
-          opt.textContent = n;
-          sel.append(opt);
-        }
-
         const currentPick = state.seasonBets?.[p]?.[cat.key] || "";
-        sel.value = currentPick;
-
         const result = state.seasonResults?.[cat.key];
-        const won = result && currentPick === result && (cat.key !== "darkHorse" || isDarkHorseValid(result));
+        const won = seasonBetMatches(cat, currentPick, result);
 
         if (won) {
           const trophy = document.createElement("span");
@@ -2284,14 +2414,14 @@ function renderSeasonBets() {
           playerPick.append(trophy);
         }
 
-        sel.addEventListener("change", () => {
+        const input = buildSeasonInput(cat, currentPick, locked, (val) => {
           if (!state.seasonBets[p]) state.seasonBets[p] = {};
-          state.seasonBets[p][cat.key] = sel.value || null;
+          state.seasonBets[p][cat.key] = val;
           saveState();
           renderSeasonBets();
         });
 
-        playerPick.append(label, sel);
+        playerPick.append(label, input);
         playersRow.append(playerPick);
       }
 
@@ -2311,38 +2441,15 @@ function renderSeasonBets() {
       label.className = "season-result-row__label";
       label.textContent = cat.label;
 
-      const sel = document.createElement("select");
-      sel.className = "input season-result-row__select";
-
-      const placeholder = document.createElement("option");
-      placeholder.value = "";
-      placeholder.textContent = "— Not resolved —";
-      sel.append(placeholder);
-
-      for (const n of names) {
-        const opt = document.createElement("option");
-        opt.value = n;
-        opt.textContent = n;
-        sel.append(opt);
-      }
-
-      sel.value = state.seasonResults?.[cat.key] || "";
-
-      sel.addEventListener("change", () => {
+      const input = buildSeasonInput(cat, state.seasonResults?.[cat.key] || "", false, (val) => {
         if (!state.seasonResults) state.seasonResults = {};
-        const val = sel.value || null;
-        if (cat.key === "darkHorse" && val && !isDarkHorseValid(val)) {
-          alert(`${val} was eliminated on or before episode 5 — not eligible as a dark horse pick.`);
-          sel.value = state.seasonResults[cat.key] || "";
-          return;
-        }
         state.seasonResults[cat.key] = val;
         saveState();
         renderSeasonBets();
         renderLeaderboard();
       });
 
-      row.append(label, sel);
+      row.append(label, input);
       resultsGrid.append(row);
     }
   }
@@ -2701,6 +2808,19 @@ function guysAfterEliminations(ep) {
 }
 
 function wireActions() {
+  document.getElementById("cast-add-btn")?.addEventListener("click", () => {
+    const nameEl = document.getElementById("cast-add-name");
+    const photoEl = document.getElementById("cast-add-photo");
+    const name = nameEl.value.trim();
+    if (!name) return;
+    const photo = photoEl.value.trim();
+    ensureInCast(name, photo);
+    nameEl.value = "";
+    photoEl.value = "";
+    saveState();
+    renderOverview();
+  });
+
   document.getElementById("bank-event-search")?.addEventListener("input", () => {
     renderEventBank();
   });
@@ -2783,11 +2903,15 @@ function wireActions() {
   document.getElementById("add-guy")?.addEventListener("click", () => {
     const ep = activeEpisode();
     const input = document.getElementById("new-guy-name");
+    const photoInput = document.getElementById("new-guy-photo");
     const name = input.value.trim();
+    const photo = photoInput?.value.trim() || "";
     if (!ep || !name) return;
     if (!Array.isArray(ep.guys)) ep.guys = [];
     ep.guys.push({ id: uid(), name });
+    ensureInCast(name, photo);
     input.value = "";
+    if (photoInput) photoInput.value = "";
     saveState();
     renderGuys();
     renderEliminationBets();
@@ -3157,6 +3281,7 @@ function renderWeeklyRecap() {
             img.src = el.photoUrl;
             img.alt = el.contestantName;
             img.loading = "lazy";
+            photoFallback(img, el.contestantName);
             wrap.append(img);
           }
           const textWrap = document.createElement("div");
@@ -3402,6 +3527,7 @@ function init() {
     if (!merged.seasonResults || typeof merged.seasonResults !== "object") merged.seasonResults = {};
     if (typeof merged.seasonBetsLocked !== "boolean") merged.seasonBetsLocked = false;
     if (!merged.contestantNotes || typeof merged.contestantNotes !== "object") merged.contestantNotes = {};
+    if (!Array.isArray(merged.customCast)) merged.customCast = [];
     if (!Array.isArray(merged.episodes)) merged.episodes = [];
     for (const ep of merged.episodes) {
       if (!Array.isArray(ep.events)) ep.events = [];

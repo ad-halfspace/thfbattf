@@ -208,7 +208,6 @@ body {
   font-weight: 400;
   color: var(--ink-soft);
   line-height: 1.65;
-  max-width: 62ch;
 }
 
 .panel__hint a {
@@ -235,6 +234,7 @@ body {
 }
 
 .cast-card {
+  position: relative;
   background: var(--cream-card);
   border-radius: var(--radius);
   overflow: hidden;
@@ -250,9 +250,44 @@ body {
 }
 
 .cast-card__photo-wrap {
+  position: relative;
   aspect-ratio: 3 / 2;
   background: linear-gradient(145deg, var(--stone), var(--cream-warm));
   overflow: hidden;
+}
+
+.photo-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, var(--stone), var(--cream-warm));
+  color: var(--gold-deep);
+  font-family: "Playfair Display", serif;
+  font-weight: 700;
+  font-size: 2rem;
+  letter-spacing: 0.04em;
+  user-select: none;
+}
+
+.guy-chip .photo-fallback {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+}
+
+.elim-card__photo-wrap .photo-fallback {
+  font-size: 1.4rem;
+}
+
+.recap-elim-person .photo-fallback {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .cast-card__photo {
@@ -290,6 +325,83 @@ body {
   font-size: 0.8125rem;
   color: var(--ink-soft);
   line-height: 1.45;
+}
+
+.cast-card__delete {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 2;
+}
+
+.cast-card:hover .cast-card__delete {
+  opacity: 1;
+}
+
+.cast-card__delete:hover {
+  background: var(--rose-red);
+}
+
+.cast-card__edit-photo {
+  position: absolute;
+  bottom: 0.4rem;
+  left: 0.4rem;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.2rem 0.45rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 2;
+}
+
+.cast-card__photo-wrap:hover .cast-card__edit-photo {
+  opacity: 1;
+}
+
+.cast-card__edit-photo:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+/* ── Add contestant form ── */
+.cast-add-form {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--line);
+}
+
+.cast-add-form__title {
+  margin-bottom: 0.25rem;
+}
+
+.cast-add-form__row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.cast-add-form__row .input {
+  flex: 1 1 180px;
+  min-width: 0;
 }
 
 /* ── Contestant notes ── */
@@ -475,6 +587,79 @@ body {
 
 .event-bank-section .panel__hint {
   margin-bottom: 1.25rem;
+}
+
+.bet-bank-phase-explainer {
+  margin-bottom: 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--cream-card);
+  overflow: hidden;
+}
+
+.bet-bank-phase-explainer__toggle {
+  cursor: pointer;
+  padding: 0.6rem 1rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gold-deep);
+  list-style: none;
+}
+
+.bet-bank-phase-explainer__toggle::-webkit-details-marker {
+  display: none;
+}
+
+.bet-bank-phase-explainer__toggle::before {
+  content: "\25B6\FE0E ";
+  font-size: 0.65rem;
+  margin-right: 0.35rem;
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.bet-bank-phase-explainer[open] > .bet-bank-phase-explainer__toggle::before {
+  transform: rotate(90deg);
+}
+
+.bet-bank-phase-explainer__body {
+  padding: 0 1rem 0.8rem;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  line-height: 1.55;
+}
+
+.bet-bank-phase-explainer__body p {
+  margin: 0.4rem 0;
+}
+
+.bet-bank-phase-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.6rem 0;
+  font-size: 0.78rem;
+}
+
+.bet-bank-phase-table th,
+.bet-bank-phase-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.bet-bank-phase-table th {
+  font-weight: 600;
+  color: var(--ink);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.bet-bank-phase-table code {
+  font-size: 0.75rem;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
 }
 
 .event-bank-toolbar {
@@ -1775,10 +1960,17 @@ body {
   font-weight: 600;
 }
 
-.view-overview .overview-block:first-of-type {
-  margin-bottom: 1.75rem;
-  padding-bottom: 1.5rem;
+.view-overview > .overview-block,
+.view-overview > .overview-columns {
+  margin-bottom: 2.25rem;
+  padding-bottom: 1.75rem;
   border-bottom: 1px solid var(--line);
+}
+
+.view-overview > :last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .overview-columns {
@@ -2218,6 +2410,11 @@ body {
   opacity: 0.6;
   cursor: not-allowed;
   background: var(--cream);
+}
+
+.season-card__select--narrow {
+  max-width: 5rem;
+  text-align: center;
 }
 
 .season-card__trophy {
