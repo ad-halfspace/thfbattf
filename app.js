@@ -259,6 +259,7 @@ function deleteActiveEpisode() {
   delete state.bets[id];
   delete state.occurred[id];
   delete state.eliminationBets[id];
+  delete state.nuttet[id];
   if (state.episodes.length === 0) {
     state.activeTab = OVERVIEW;
   } else {
@@ -348,6 +349,8 @@ function defaultState() {
     contestantNotes: {},
     /** User-added contestants [{ name, photo?, age?, occupation? }] */
     customCast: [],
+    /** thursdayEpisodeId -> playerIndex -> contestantName */
+    nuttet: {},
   };
 }
 
@@ -391,6 +394,7 @@ function loadState() {
     if (typeof result.seasonBetsLocked !== "boolean") result.seasonBetsLocked = false;
     if (!result.contestantNotes || typeof result.contestantNotes !== "object") result.contestantNotes = {};
     if (!Array.isArray(result.customCast)) result.customCast = [];
+    if (!result.nuttet || typeof result.nuttet !== "object") result.nuttet = {};
     for (const ep of result.episodes) {
       if (!Array.isArray(ep.events)) ep.events = [];
       if (!Array.isArray(ep.eliminated)) ep.eliminated = [];
@@ -1026,15 +1030,19 @@ function updateViewVisibility() {
   const onMyStats = state.activeTab === MY_STATS;
   const onAbout = state.activeTab === ABOUT;
   const onEpisode = !onOverview && !onCast && !onEventBank && !onSeasonBets && !onWeeklyRecap && !onMyStats && !onAbout;
-  if (viewOverview) viewOverview.hidden = !onOverview;
-  if (viewCast) viewCast.hidden = !onCast;
-  if (viewEventBank) viewEventBank.hidden = !onEventBank;
-  if (viewSeasonBets) viewSeasonBets.hidden = !onSeasonBets;
-  if (viewWeeklyRecap) viewWeeklyRecap.hidden = !onWeeklyRecap;
-  if (viewMyStats) viewMyStats.hidden = !onMyStats;
-  if (viewAbout) viewAbout.hidden = !onAbout;
+  const allViews = [viewOverview, viewCast, viewEventBank, viewSeasonBets, viewWeeklyRecap, viewMyStats, viewAbout, episodeMain];
+  const activeFlags = [onOverview, onCast, onEventBank, onSeasonBets, onWeeklyRecap, onMyStats, onAbout, onEpisode];
+  allViews.forEach((v, i) => {
+    if (!v) return;
+    const show = activeFlags[i];
+    v.hidden = !show;
+    if (show) {
+      v.classList.remove("view-fade-in");
+      void v.offsetWidth;
+      v.classList.add("view-fade-in");
+    }
+  });
   if (episodeMain) {
-    episodeMain.hidden = !onEpisode;
     if (onEpisode) {
       const ep = activeEpisode();
       episodeMain.classList.toggle("episode--closed", ep ? isEpisodeClosed(ep) : false);
@@ -1119,14 +1127,11 @@ function renderOverview() {
     body.className = "cast-card__body";
     const h = document.createElement("h3");
     h.className = "cast-card__name";
-    h.textContent = c.name;
-    const meta = document.createElement("p");
-    meta.className = "cast-card__meta";
-    meta.textContent = c.age ? `${c.age} \u00E5r` : "";
+    h.textContent = c.age ? `${c.name}, ${c.age}` : c.name;
     const job = document.createElement("p");
     job.className = "cast-card__job";
     job.textContent = c.occupation;
-    body.append(h, meta, job);
+    body.append(h, job);
 
     const noteData = state.contestantNotes[c.name];
     const noteWrap = document.createElement("div");
@@ -1160,6 +1165,14 @@ function renderOverview() {
       noteWrap.append(preview, saving);
     }
     body.append(noteWrap);
+
+    const nuttetCount = getNuttetRanking().find((r) => r.name.toLowerCase() === c.name.toLowerCase())?.count || 0;
+    if (nuttetCount > 0) {
+      const nuttetBadge = document.createElement("p");
+      nuttetBadge.className = "cast-card__nuttet";
+      nuttetBadge.textContent = `Nuttet-score: ${nuttetCount}`;
+      body.append(nuttetBadge);
+    }
 
     const isCustom = !CAST_BA4_2026.some((b) => b.name.toLowerCase() === c.name.toLowerCase());
     if (isCustom) {
@@ -1663,8 +1676,8 @@ function renderMainTabs() {
 
   const pages = [
     { id: OVERVIEW, label: "Overview" },
-    { id: WEEKLY_RECAP, label: "Ugens recap" },
-    { id: CAST, label: "Bejlere" },
+    { id: WEEKLY_RECAP, label: "Weekly recap" },
+    { id: CAST, label: "Cast" },
     { id: EVENT_BANK, label: "Bet bank" },
     { id: SEASON_BETS, label: "Season bets" },
     { id: MY_STATS, label: "Player stats" },
@@ -2050,6 +2063,7 @@ function renderResults() {
   if (!Array.isArray(ep.events)) ep.events = [];
   ensureEpisodeMaps(ep.id);
   const closed = isEpisodeClosed(ep);
+  const betsLocked = isEpisodeBetsLocked(ep);
   const occurred = new Set(state.occurred[ep.id] || []);
   const betIds = betOnEventIds(ep);
 
@@ -2061,6 +2075,15 @@ function renderResults() {
     empty.style.margin = "0";
     empty.textContent = "Place bets above first — only events someone bet on appear here.";
     root.append(empty);
+    return;
+  }
+
+  if (!betsLocked) {
+    const hint = document.createElement("p");
+    hint.className = "panel__hint";
+    hint.style.margin = "0";
+    hint.textContent = "Lock bets first before marking what happened.";
+    root.append(hint);
     return;
   }
 
@@ -2153,6 +2176,7 @@ function renderEliminations() {
   if (!Array.isArray(ep.guys)) ep.guys = [];
   ensureEliminatedArray(ep);
   const closed = isEpisodeClosed(ep);
+  const betsLocked = isEpisodeBetsLocked(ep);
 
   if (!ep.guys.length) {
     const p = document.createElement("p");
@@ -2160,6 +2184,15 @@ function renderEliminations() {
     p.style.margin = "0";
     p.textContent = "Add contestants first.";
     root.append(p);
+    return;
+  }
+
+  if (!betsLocked) {
+    const hint = document.createElement("p");
+    hint.className = "panel__hint";
+    hint.style.margin = "0";
+    hint.textContent = "Lock bets first before marking eliminations.";
+    root.append(hint);
     return;
   }
 
@@ -2219,8 +2252,10 @@ function renderEliminations() {
 function renderEpisodeScoreSummary() {
   const ep = activeEpisode();
   const el = document.getElementById("episode-score-summary");
+  const topEl = document.getElementById("episode-score-top");
   if (!ep) {
     el.hidden = true;
+    if (topEl) topEl.hidden = true;
     return;
   }
   const pts = episodePoints(ep);
@@ -2239,8 +2274,12 @@ function renderEpisodeScoreSummary() {
   if (lines.length) {
     html += `<br><span class="streak-summary">${lines.join(" \u00B7 ")}</span>`;
   }
-  el.innerHTML = html;
-  el.hidden = false;
+  const closed = isEpisodeClosed(ep);
+  el.hidden = true;
+  if (topEl) {
+    topEl.innerHTML = html;
+    topEl.hidden = !closed;
+  }
 }
 
 function getRunningGuyNames() {
@@ -2271,12 +2310,59 @@ function renderOverviewPanels() {
   if (!runRoot) return;
 
   runRoot.innerHTML = "";
+  const runningNames = new Set(getRunningGuyNames().map((n) => n.toLowerCase()));
+  const cast = allCast();
+
   getRunningGuyNames().forEach((name) => {
-    const chip = document.createElement("span");
-    chip.className = "overview-chip";
-    chip.textContent = name;
-    runRoot.append(chip);
+    const info = cast.find((c) => c.name.toLowerCase() === name.toLowerCase());
+    const card = document.createElement("div");
+    card.className = "running-card";
+
+    const top = document.createElement("div");
+    top.className = "running-card__top";
+
+    if (info && info.photo) {
+      const img = document.createElement("img");
+      img.className = "running-card__photo";
+      img.src = info.photo;
+      img.alt = name;
+      img.loading = "lazy";
+      top.append(img);
+    } else {
+      const initials = document.createElement("span");
+      initials.className = "running-card__initials";
+      initials.textContent = name.charAt(0).toUpperCase();
+      top.append(initials);
+    }
+
+    if (info && info.occupation) {
+      const occ = document.createElement("span");
+      occ.className = "running-card__occupation";
+      occ.textContent = info.occupation;
+      top.append(occ);
+    }
+
+    card.append(top);
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "running-card__name";
+    nameEl.textContent = name;
+    if (info && info.age) nameEl.textContent += `, ${info.age}`;
+    card.append(nameEl);
+
+    card.addEventListener("click", () => {
+      state.activeTab = CAST;
+      saveState();
+      renderMainTabs();
+      updateViewVisibility();
+      renderGuys();
+    });
+
+    runRoot.append(card);
   });
+
+  const countEl = document.querySelector(".running-section__count");
+  if (countEl) countEl.textContent = `${getRunningGuyNames().length} remaining`;
 
   renderStreakLeaders();
 }
@@ -2309,20 +2395,11 @@ function renderStreakLeaders() {
     const streakEl = document.createElement("span");
     streakEl.className = "streak-leader-row__val";
     if (s.currentStreak > 0) {
-      streakEl.textContent = `\uD83D\uDD25 ${s.currentStreak}`;
-      const nextM = STREAK_MILESTONES.find((m) => m.at > s.currentStreak);
-      if (nextM) {
-        const dist = document.createElement("span");
-        dist.className = "streak-leader-row__next";
-        dist.textContent = `${nextM.at - s.currentStreak} til +${nextM.bonus}`;
-        row.append(nameEl, streakEl, dist);
-      } else {
-        row.append(nameEl, streakEl);
-      }
+      streakEl.textContent = String(s.currentStreak);
     } else {
       streakEl.textContent = "\u2014";
-      row.append(nameEl, streakEl);
     }
+    row.append(nameEl, streakEl);
     if (s.bonusPointsEarned > 0) {
       const bonusEl = document.createElement("span");
       bonusEl.className = "streak-leader-row__bonus";
@@ -2446,7 +2523,7 @@ function renderSeasonBets() {
     if (locked) {
       const badge = document.createElement("span");
       badge.className = "season-lock-badge season-lock-badge--locked";
-      badge.innerHTML = "&#128274; Season bets are locked";
+      badge.textContent = "Season bets are locked";
       lockBar.append(badge);
 
       const unlockBtn = document.createElement("button");
@@ -2519,10 +2596,7 @@ function renderSeasonBets() {
         const won = seasonBetMatches(cat, currentPick, result);
 
         if (won) {
-          const trophy = document.createElement("span");
-          trophy.className = "season-card__trophy";
-          trophy.textContent = "\uD83C\uDFC6";
-          playerPick.append(trophy);
+          playerPick.classList.add("season-card__player--won");
         }
 
         const input = buildSeasonInput(cat, currentPick, locked, (val) => {
@@ -2574,18 +2648,27 @@ function renderSeasonBets() {
     heading.className = "overview-block__title panel__title";
     heading.textContent = "Season bet scoreboard";
     summaryRoot.append(heading);
-    for (let p = 0; p < PLAYER_COUNT; p++) {
+
+    const sorted = PLAYER_NAMES
+      .map((name, i) => ({ name, i, pts: pts[i] }))
+      .sort((a, b) => b.pts - a.pts);
+    const topPts = sorted[0]?.pts || 0;
+
+    sorted.forEach(({ name, i, pts: p }, rank) => {
       const row = document.createElement("div");
-      row.className = "season-score-row";
-      const name = document.createElement("span");
-      name.className = "season-score-row__name";
-      name.textContent = PLAYER_NAMES[p];
+      row.className = "season-score-row" + (rank === 0 && topPts > 0 ? " season-score-row--leader" : "");
+      const rankEl = document.createElement("span");
+      rankEl.className = "season-score-row__rank";
+      rankEl.textContent = String(rank + 1).padStart(2, "0");
+      const nameEl = document.createElement("span");
+      nameEl.className = "season-score-row__name";
+      nameEl.textContent = name;
       const val = document.createElement("span");
       val.className = "season-score-row__pts";
-      val.textContent = `${pts[p]} / ${maxPts} pts`;
-      row.append(name, val);
+      val.textContent = `${p} / ${maxPts} pts`;
+      row.append(rankEl, nameEl, val);
       summaryRoot.append(row);
-    }
+    });
   }
 }
 
@@ -2839,12 +2922,19 @@ function renderAllPlayersOverview(root) {
     { label: "Rank", fn: (s) => ordinalShort(s.overview.rank), raw: (s) => s.overview.rank, cmp: "low" },
     { label: "Hit rate", fn: (s) => s.overview.hitRate != null ? `${s.overview.hitRate}%` : "\u2014", raw: (s) => s.overview.hitRate ?? -1, cmp: "high" },
     { label: "Bets placed", fn: (s) => String(s.totalBets), cmp: "high" },
-    { label: "Current streak", fn: (s) => s.overview.currentStreak > 0 ? `\uD83D\uDD25 ${s.overview.currentStreak}` : "0", raw: (s) => s.overview.currentStreak, cmp: "high" },
+    { label: "Current streak", fn: (s) => s.overview.currentStreak > 0 ? String(s.overview.currentStreak) : "0", raw: (s) => s.overview.currentStreak, cmp: "high" },
     { label: "Biggest win", fn: (s) => s.overview.biggestWin.odds > 0 ? `${s.overview.biggestWin.odds}\u00D7` : "\u2014", raw: (s) => s.overview.biggestWin.odds, cmp: "high" },
     { label: "Best night", fn: (s) => s.overview.bestNight.pts > 0 ? `${s.overview.bestNight.pts.toFixed(1)}` : "\u2014", raw: (s) => s.overview.bestNight.pts, cmp: "high" },
     { label: "Elim. correct", fn: (s) => `${s.eliminations.correctBets}/${s.eliminations.totalBets}`, raw: (s) => s.eliminations.correctBets, cmp: "high" },
     { label: "Elim. hit rate", fn: (s) => s.eliminations.hitRate != null ? `${s.eliminations.hitRate}%` : "\u2014", raw: (s) => s.eliminations.hitRate ?? -1, cmp: "high" },
   ];
+
+  const hint = document.createElement("p");
+  hint.className = "panel__hint";
+  hint.style.fontSize = "0.75rem";
+  hint.style.marginBottom = "1rem";
+  hint.textContent = "Click a player name above to see their detailed stats.";
+  section.append(hint);
 
   const nameRow = document.createElement("div");
   nameRow.className = "ms-match-row ms-match-row--header";
@@ -2942,12 +3032,6 @@ function renderAllPlayersOverview(root) {
     root.append(catSection);
   }
 
-  const hint = document.createElement("p");
-  hint.className = "panel__hint";
-  hint.style.textAlign = "center";
-  hint.style.marginTop = "1rem";
-  hint.textContent = "Click a player name above to see their detailed stats.";
-  root.append(hint);
 }
 
 function renderSinglePlayerStats(root, p) {
@@ -3299,66 +3383,119 @@ function renderAbout() {
 
   root.innerHTML = `
 <header class="about-hero">
-  <span class="about-hero__rose">\uD83C\uDF39</span>
   <h1 class="about__h1" id="about-heading">About</h1>
   <p class="about-hero__tagline">The story behind the bets, the odds, and the feelings column.</p>
 </header>
 
 <article class="about-body">
 
-<section class="about-section">
-  <h2 class="about__h2">the origin</h2>
-  <p class="about__lede">This started last year as a shared iCloud note.</p>
-  <p>It had two columns. One for betting on who\u2019d go home that week. One labeled \u201Cnuttet\u201D where we each wrote down which guy we thought was cute. The cuteness column was worth zero points. It was not a betting column. It was a feelings column.</p>
-  <p>We did this for an entire season. We tallied eliminations. We logged our cuteness opinions like it was a legally binding record. We disagreed violently about who was cute. We disagreed somewhat less about who was going home, mainly because none of us knew.</p>
-  <p>The betting format was originally lifted from a Game of Thrones pool Malle ran with Dulde\u2019s family in high school, which was competitive, eerily accurate, and in retrospect probably a few kroner away from being structured gambling.</p>
-  <p>This website is the third generation of the same basic idea: actual odds, actual events, actual infrastructure. The nuttet column persists, but in a new and updated and better-than-ever format.</p>
+<section class="about-split">
+  <div class="about-split__label">
+    <span class="about-split__label-text">The Origin</span>
+  </div>
+  <div class="about-split__content">
+    <p class="about__lede">This started last year as a shared iCloud note.</p>
+    <p>It had two columns. One for betting on who\u2019d go home that week. One labeled \u201Cnuttet\u201D where we each wrote down which guy we thought was cute. The cuteness column was worth zero points. It was not a betting column. It was a feelings column.</p>
+    <p>We did this for an entire season. We tallied eliminations. We logged our cuteness opinions like it was a legally binding record. We disagreed violently about who was cute. We disagreed somewhat less about who was going home, mainly because none of us knew.</p>
+    <p>The betting format was originally lifted from a Game of Thrones pool Malle ran with Dulde\u2019s family in high school, which was competitive, eerily accurate, and in retrospect probably a few kroner away from being structured gambling.</p>
+    <p>This website is the third generation of the same basic idea: actual odds, actual events, actual infrastructure. The nuttet column persists, but in a new and updated and better-than-ever format.</p>
+  </div>
 </section>
 
-<section class="about-section">
-  <h2 class="about__h2">how it works</h2>
-  <p>Every Tuesday, Wednesday, and Thursday a new episode airs. Before midnight on air day, each of us picks three events we think will happen from a bank of way too many bets. Each event has odds. Rarer events are worth more. This is gambling for people who are too anxious to actually gamble.</p>
-  <p>Thursdays come with a rose ceremony, which adds one extra bet: who\u2019s going home? Correct eliminations pay out based on how many contestants are still in the running. Early-season guesses are genuinely hard. Late-season guesses are mostly vibes.</p>
-  <p>After the episode we tick off what actually happened. Points get tallied. The leaderboard updates. A recap lands Friday morning, which we then immediately misread and take personally.</p>
+<hr class="about-divider" />
+
+<section class="about-split">
+  <div class="about-split__label">
+    <span class="about-split__label-text">How It Works</span>
+  </div>
+  <div class="about-split__content">
+    <p class="about__lede">Every Tuesday, Wednesday, and Thursday a new episode airs.</p>
+    <p>Before midnight on air day, each of us picks three events we think will happen from a bank of way too many bets. Each event has odds. Rarer events are worth more. This is gambling for people who are too anxious to actually gamble.</p>
+    <p>Thursdays come with a rose ceremony, which adds one extra bet: who\u2019s going home? Correct eliminations pay out based on how many contestants are still in the running. Early-season guesses are genuinely hard. Late-season guesses are mostly vibes.</p>
+    <p>After the episode we tick off what actually happened. Points get tallied. The leaderboard updates. A recap lands Friday morning, which we then immediately misread and take personally.</p>
+  </div>
 </section>
 
-<section class="about-section about-section--principles">
-  <h2 class="about__h2">design principles</h2>
-  <div class="about-principles">
-    <div class="about-principle">
-      <p><strong>It should be fun before it\u2019s fair.</strong> Perfect odds would make this a math exercise. We have spreadsheets at work. We did not build this to use another spreadsheet. A 20\u00D7 bet on something absurd happening is the entire personality of this site.</p>
-    </div>
-    <div class="about-principle">
-      <p><strong>No accounts, no logins.</strong> Four of us, one shared state, Firebase doing the actual work. If we can\u2019t trust each other not to tamper with the database, the friendship is cooked anyway and no login screen is going to save it.</p>
-    </div>
-    <div class="about-principle">
-      <p><strong>Everything syncs live.</strong> No refreshing. No \u201Cdid you see my bet?\u201D If Yas places a bet from her couch, Thiller\u2019s phone knows about it before Yas has set the phone down.</p>
-    </div>
-    <div class="about-principle">
-      <p><strong>Bachelorette-specific, not generic.</strong> The events know this is Mie and Sofie\u2019s season. They know about Lulu. They reference Sicily. A bet bank that doesn\u2019t mention Stig Rossen at least once is a bet bank that has failed you.</p>
-    </div>
-    <div class="about-principle">
-      <p><strong>Odds aren\u2019t sacred.</strong> We tune them between episodes. If \u201Csomeone cries\u201D keeps happening 100% of the time, that is feedback from the universe and we take it seriously. Dulde has a whole theory about this. We do not have time to hear the whole theory.</p>
+<hr class="about-divider" />
+
+<section class="about-split">
+  <div class="about-split__label">
+    <span class="about-split__label-text">Our Approach</span>
+  </div>
+  <div class="about-split__content">
+    <div class="about-numbered">
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">01</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Fun before fair</h3>
+          <p>Perfect odds would make this a math exercise. We have spreadsheets at work. We did not build this to use another spreadsheet. A 20\u00D7 bet on something absurd happening is the entire personality of this site.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">02</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">No accounts, no logins</h3>
+          <p>Four of us, one shared state, Firebase doing the actual work. If we can\u2019t trust each other not to tamper with the database, the friendship is cooked anyway and no login screen is going to save it.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">03</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Everything syncs live</h3>
+          <p>No refreshing. No \u201Cdid you see my bet?\u201D If Yas places a bet from her couch, Thiller\u2019s phone knows about it before Yas has set the phone down.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">04</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Bachelorette-specific</h3>
+          <p>The events know this is Mie and Sofie\u2019s season. They know about Lulu. They reference Sicily. A bet bank that doesn\u2019t mention Stig Rossen at least once is a bet bank that has failed you.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">05</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Odds aren\u2019t sacred</h3>
+          <p>We tune them between episodes. If \u201Csomeone cries\u201D keeps happening 100% of the time, that is feedback from the universe and we take it seriously. Dulde has a whole theory about this. We do not have time to hear the whole theory.</p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="about-section about-section--duo">
-  <div class="about-duo">
-    <div class="about-duo__card about-duo__card--do">
-      <h2 class="about__h2">what counts as cheating</h2>
-      <p>Waiting to see what happens in an episode before locking in your bets. That\u2019s why betting closes at midnight on air day. We love each other. We don\u2019t trust each other.</p>
-    </div>
-    <div class="about-duo__card about-duo__card--dont">
-      <h2 class="about__h2">what doesn\u2019t count as cheating</h2>
-      <p>Almost everything else. Betting strategically against a friend: yes. Building a color-coded tracker of which contestant cries on which day: enthusiastically yes. Stalking the contestants on Instagram for scouting intel: we call that research. If it happens before the deadline, it\u2019s fair play and arguably heroic.</p>
+<hr class="about-divider" />
+
+<section class="about-split">
+  <div class="about-split__label">
+    <span class="about-split__label-text">Fair Play</span>
+  </div>
+  <div class="about-split__content">
+    <div class="about-fairplay">
+      <div class="about-fairplay__block">
+        <h3 class="about-fairplay__heading about-fairplay__heading--red">What counts as cheating</h3>
+        <p>Waiting to see what happens in an episode before locking in your bets. That\u2019s why betting closes at midnight on air day. We love each other. We don\u2019t trust each other.</p>
+      </div>
+      <div class="about-fairplay__block">
+        <h3 class="about-fairplay__heading about-fairplay__heading--green">What doesn\u2019t</h3>
+        <p>Almost everything else. Betting strategically against a friend: yes. Building a color-coded tracker of which contestant cries on which day: enthusiastically yes. Stalking the contestants on Instagram for scouting intel: we call that research. If it happens before the deadline, it\u2019s fair play and arguably heroic.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="about-section about-section--name">
-  <h2 class="about__h2">the name</h2>
-  <p>THFBATTF stands for <em>The Hotass French-speaking Bitches and their Translator Friends</em>. This is from a group project for national language day in high school. Thiller and Yas studied French. Dulde and Malle studied German and were press-ganged into translating. The project is forgotten. The presentation is forgotten. The French is, embarrassingly, also forgotten. The acronym survived all of it and now sits at the top of a betting website. This is, as far as we can tell, the peak of its journey.</p>
+<hr class="about-divider" />
+
+<section class="about-feature">
+  <div class="about-feature__text">
+    <span class="about-feature__num">04</span>
+    <h3 class="about-feature__heading">The Name</h3>
+    <p class="about__lede">THFBATTF stands for <em>The Hotass French-speaking Bitches and their Translator Friends</em>.</p>
+    <p>This is from a group project for national language day in high school. Thiller and Yas studied French. Dulde and Malle studied German and were press-ganged into translating. The project is forgotten. The presentation is forgotten. The French is, embarrassingly, also forgotten. The acronym survived all of it and now sits at the top of a betting website. This is, as far as we can tell, the peak of its journey.</p>
+  </div>
+  <figure class="about-feature__figure">
+    <img class="about-feature__img" src="assets/thfbattf-group.png" alt="THFBATTF" loading="lazy" />
+    <figcaption class="about-feature__caption">The original THFBATTF crew</figcaption>
+  </figure>
 </section>
 
 </article>
@@ -3374,20 +3511,8 @@ function renderLeaderboard() {
   const root = document.getElementById("leaderboard");
   root.innerHTML = "";
 
-  const latestOpen = [...state.episodes].reverse().find((ep) => !isEpisodeClosed(ep));
-  const statusEp = latestOpen || state.episodes[state.episodes.length - 1];
-  if (statusEp) ensureEpisodeMaps(statusEp.id);
-
   const hint = document.getElementById("lb-bet-status-hint");
-  if (hint) {
-    if (statusEp) {
-      const epIdx = state.episodes.indexOf(statusEp);
-      hint.textContent = `Bet status for ${episodeTabLabel(epIdx)}${isEpisodeClosed(statusEp) ? " (closed)" : ""}`;
-      hint.hidden = false;
-    } else {
-      hint.hidden = true;
-    }
-  }
+  if (hint) hint.hidden = true;
 
   const elimCorrect = PLAYER_NAMES.map(() => 0);
   for (const ep of state.episodes) {
@@ -3404,58 +3529,61 @@ function renderLeaderboard() {
   const order = totals
     .map((pts, i) => ({ i, pts }))
     .sort((a, b) => b.pts - a.pts);
-  order.forEach(({ i, pts }) => {
-    const row = document.createElement("div");
-    row.className = "lb-row";
-    const name = document.createElement("span");
-    name.className = "lb-row__name";
-    name.textContent = PLAYER_NAMES[i];
-    const val = document.createElement("span");
-    val.className = "lb-row__pts";
-    val.textContent = `${pts.toFixed(2)} pts`;
-    const elim = document.createElement("span");
-    elim.className = "lb-row__elim";
-    elim.title = "Correct elimination guesses";
-    elim.textContent = `\uD83C\uDF39 ${elimCorrect[i]}`;
-    const seasonCol = document.createElement("span");
-    seasonCol.className = "lb-row__season";
-    seasonCol.title = "Season bet points (earned / max)";
-    seasonCol.textContent = `\uD83C\uDFC6 ${sPts[i]}/${maxSeason}`;
 
-    row.append(name, val, elim, seasonCol);
+  order.forEach(({ i, pts }, rank) => {
+    const card = document.createElement("div");
+    card.className = "lb-card" + (rank === 0 ? " lb-card--leader" : "");
 
-    const st = streaks[i] || { currentStreak: 0, longestStreak: 0, bonusPointsEarned: 0 };
-    if (st.currentStreak > 0) {
-      const nextM = STREAK_MILESTONES.find((m) => m.at > st.currentStreak);
-      const fire = document.createElement("span");
-      fire.className = "lb-row__streak" + (st.currentStreak >= 3 ? " lb-row__streak--hot" : "");
-      fire.textContent = `\uD83D\uDD25 ${st.currentStreak}`;
-      fire.title = `${st.currentStreak} episode${st.currentStreak > 1 ? "r" : ""} i tr\u00E6k med korrekt bet` +
-        (nextM ? `. ${nextM.at - st.currentStreak} fra +${nextM.bonus} bonus.` : ". Max milestone n\u00E5et!");
-      row.append(fire);
-    }
+    const rankEl = document.createElement("span");
+    rankEl.className = "lb-card__rank";
+    rankEl.textContent = String(rank + 1).padStart(2, "0");
 
-    if (statusEp) {
-      const picks = (state.bets[statusEp.id][i] || []).filter(Boolean);
-      const hasBets = picks.length > 0;
-      const badge = document.createElement("span");
-      badge.className = "lb-row__bet-status" + (hasBets ? " lb-row__bet-status--done" : " lb-row__bet-status--missing");
-      badge.textContent = hasBets ? "\u2713" : "No bets";
-      row.append(badge);
-    }
-    root.append(row);
+    const body = document.createElement("div");
+    body.className = "lb-card__body";
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "lb-card__name";
+    nameEl.textContent = PLAYER_NAMES[i];
+
+    const meta = document.createElement("span");
+    meta.className = "lb-card__meta";
+    const st = streaks[i] || { currentStreak: 0, bonusPointsEarned: 0 };
+    const parts = [];
+    parts.push(`${elimCorrect[i]} correct elim.`);
+    parts.push(`Season ${sPts[i]}/${maxSeason}`);
+    if (st.currentStreak > 0) parts.push(`Streak ${st.currentStreak}`);
+    if (st.bonusPointsEarned > 0) parts.push(`+${st.bonusPointsEarned} bonus`);
+    meta.textContent = parts.join("  \u00B7  ");
+
+    body.append(nameEl, meta);
+
+    const ptsEl = document.createElement("span");
+    ptsEl.className = "lb-card__points";
+    ptsEl.textContent = pts.toFixed(2);
+
+    const ptsLabel = document.createElement("span");
+    ptsLabel.className = "lb-card__points-label";
+    ptsLabel.textContent = "pts";
+
+    const ptsWrap = document.createElement("div");
+    ptsWrap.className = "lb-card__points-wrap";
+    ptsWrap.append(ptsEl, ptsLabel);
+
+    card.append(rankEl, body, ptsWrap);
+    card.addEventListener("click", () => {
+      statsViewMode = "player";
+      selectedStatsPlayer = i;
+      state.activeTab = MY_STATS;
+      saveState();
+      renderMainTabs();
+      updateViewVisibility();
+      renderMyStats();
+    });
+    root.append(card);
   });
 
-  const longestOverall = streaks.length ? Math.max(...streaks.map((s) => s?.longestStreak || 0)) : 0;
-  if (longestOverall > 0) {
-    const longestEl = document.createElement("p");
-    longestEl.className = "lb-longest-streak";
-    const who = PLAYER_NAMES.filter((_, i) => (streaks[i]?.longestStreak || 0) === longestOverall).join(", ");
-    longestEl.textContent = `Longest streak: ${longestOverall} (${who})`;
-    root.append(longestEl);
-  }
-
   renderOverviewPanels();
+  renderNuttetOverview();
   renderAllBetsOverview();
 }
 
@@ -3605,6 +3733,175 @@ function renderAllBetsOverview() {
   }
 }
 
+/* ── Nuttet helpers ── */
+
+function getThursdayEpisodes() {
+  return state.episodes.filter((ep) => isEliminationEpisode(ep));
+}
+
+function getThursdayEpisodeForWeek(weekId) {
+  return getEpisodesForWeek(weekId).find((ep) => isEliminationEpisode(ep)) || null;
+}
+
+function getEligibleContestantsForNuttet(epId) {
+  const epIdx = state.episodes.findIndex((e) => e.id === epId);
+  if (epIdx < 0) return [];
+  const ep = state.episodes[epIdx];
+  if (!ep.guys || !ep.guys.length) return [];
+  const priorEliminated = new Set();
+  for (let i = 0; i < epIdx; i++) {
+    for (const name of (state.episodes[i].eliminated || [])) {
+      priorEliminated.add(name);
+    }
+  }
+  return ep.guys.filter((g) => !priorEliminated.has(g.name));
+}
+
+function getNuttetRanking() {
+  const counts = new Map();
+  for (const epId of Object.keys(state.nuttet || {})) {
+    const picks = state.nuttet[epId];
+    for (const p of Object.keys(picks)) {
+      const name = picks[p];
+      if (!name) continue;
+      counts.set(name, (counts.get(name) || 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .map(([name, count]) => ({ name, count, photoUrl: castPhotoByName(name) }))
+    .sort((a, b) => b.count - a.count);
+}
+
+function getNuttetForWeek(thursdayEpId) {
+  return state.nuttet?.[thursdayEpId] || {};
+}
+
+function renderNuttetSection(ep) {
+  const root = document.getElementById("nuttet-section");
+  if (!root) return;
+  if (!ep.airDate) { root.hidden = true; return; }
+  const [ny, nm, nd] = ep.airDate.split("-").map(Number);
+  const isThursday = new Date(ny, nm - 1, nd).getDay() === 4;
+  if (!isThursday) {
+    root.hidden = true;
+    return;
+  }
+  root.hidden = false;
+  root.innerHTML = "";
+
+  const closed = isEpisodeClosed(ep);
+  const eligible = getEligibleContestantsForNuttet(ep.id);
+  const picks = getNuttetForWeek(ep.id);
+
+  const title = document.createElement("h2");
+  title.className = "panel__title";
+  title.textContent = "Nuttet this week";
+  const hint = document.createElement("p");
+  hint.className = "panel__hint";
+  hint.textContent = "Zero points. Pure vibes. Tradition since the iCloud note days.";
+  root.append(title, hint);
+
+  const grid = document.createElement("div");
+  grid.className = "nuttet-grid";
+
+  for (let p = 0; p < PLAYER_COUNT; p++) {
+    const row = document.createElement("div");
+    row.className = "nuttet-row";
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "nuttet-row__name";
+    nameEl.textContent = PLAYER_NAMES[p];
+
+    const select = document.createElement("select");
+    select.className = "nuttet-row__select";
+    select.disabled = closed;
+
+    const emptyOpt = document.createElement("option");
+    emptyOpt.value = "";
+    emptyOpt.textContent = "\u2014 v\u00E6lg en \u2014";
+    select.append(emptyOpt);
+
+    const currentPick = picks[p] || "";
+    const eligibleNames = new Set(eligible.map((g) => g.name));
+    if (currentPick && !eligibleNames.has(currentPick)) {
+      eligibleNames.add(currentPick);
+    }
+
+    const sorted = [...eligibleNames].sort((a, b) => a.localeCompare(b, "da"));
+    for (const name of sorted) {
+      const opt = document.createElement("option");
+      opt.value = name;
+      opt.textContent = name;
+      if (name === currentPick) opt.selected = true;
+      select.append(opt);
+    }
+
+    select.addEventListener("change", () => {
+      if (!state.nuttet[ep.id]) state.nuttet[ep.id] = {};
+      state.nuttet[ep.id][p] = select.value || null;
+      saveState();
+    });
+
+    row.append(nameEl, select);
+    grid.append(row);
+  }
+
+  root.append(grid);
+}
+
+function renderNuttetOverview() {
+  const root = document.getElementById("overview-nuttet");
+  if (!root) return;
+  const ranking = getNuttetRanking();
+  root.innerHTML = "";
+
+  if (!ranking.length) {
+    root.hidden = true;
+    return;
+  }
+  root.hidden = false;
+
+  const title = document.createElement("h3");
+  title.className = "overview-block__title panel__title";
+  title.textContent = "Season's most cute";
+  root.append(title);
+
+  const list = document.createElement("div");
+  list.className = "nuttet-ranking";
+
+  ranking.forEach(({ name, count, photoUrl }) => {
+    const row = document.createElement("div");
+    row.className = "nuttet-ranking__row";
+
+    if (photoUrl) {
+      const img = document.createElement("img");
+      img.className = "nuttet-ranking__photo";
+      img.src = photoUrl;
+      img.alt = name;
+      img.loading = "lazy";
+      row.append(img);
+    } else {
+      const fb = document.createElement("span");
+      fb.className = "nuttet-ranking__fb";
+      fb.textContent = name.charAt(0).toUpperCase();
+      row.append(fb);
+    }
+
+    const nameEl = document.createElement("span");
+    nameEl.className = "nuttet-ranking__name";
+    nameEl.textContent = name;
+
+    const countEl = document.createElement("span");
+    countEl.className = "nuttet-ranking__count";
+    countEl.textContent = `\u00D7${count}`;
+
+    row.append(nameEl, countEl);
+    list.append(row);
+  });
+
+  root.append(list);
+}
+
 function renderEpisodeContent() {
   const ep = activeEpisode();
   const workspace = document.getElementById("episode-workspace");
@@ -3627,13 +3924,17 @@ function renderEpisodeContent() {
     const showBetsLock = ep?.betsLocked && !closed;
     betsLockBanner.hidden = !showBetsLock;
     if (showBetsLock && betsLockText) {
-      betsLockText.textContent = "Bets er l\u00E5st. Events og resultater kan stadig redigeres.";
+      let msg = "Bets er l\u00E5st. Events og resultater kan stadig redigeres.";
+      if (ep.betsLockedAt) {
+        msg += " \u00B7 L\u00E5st " + formatDeadlineTime(ep.betsLockedAt);
+      }
+      betsLockText.textContent = msg;
     }
   }
 
   const deadlineEl = document.getElementById("deadline-display");
   if (deadlineEl && ep) {
-    if (ep.betsLockDeadline && !closed) {
+    if (ep.betsLockDeadline && !closed && !betsLocked) {
       deadlineEl.hidden = false;
       renderDeadlineDisplay(deadlineEl, ep);
     } else {
@@ -3704,6 +4005,7 @@ function renderEpisodeContent() {
   safe(renderResults, "renderResults");
   safe(renderEliminations, "renderEliminations");
   safe(renderEpisodeScoreSummary, "renderEpisodeScoreSummary");
+  if (ep) safe(() => renderNuttetSection(ep), "renderNuttetSection");
 }
 
 function renderDeadlineDisplay(el, ep) {
@@ -3923,10 +4225,30 @@ function wireActions() {
       ep.betsLocked = true;
       ep.betsLockedAt = Date.now();
     }
+    const epIdx = state.episodes.indexOf(ep);
+    const nextEp = state.episodes[epIdx + 1];
+    if (!nextEp) {
+      const carryGuys = guysAfterEliminations(ep).map((g) => ({ id: uid(), name: g.name }));
+      const nextAirDate = ep.airDate ? getNextAirDate(new Date(ep.airDate + "T12:00:00")) : null;
+      const betsLockDeadline = nextAirDate ? copenhagenMidnight(nextAirDate) : null;
+      const newEp = {
+        id: uid(),
+        title: `Episode ${state.episodes.length + 1}`,
+        guys: carryGuys,
+        events: [],
+        eliminated: [],
+        betsLocked: false,
+        betsLockedAt: null,
+        betsLockDeadline,
+        airDate: nextAirDate,
+      };
+      state.episodes.push(newEp);
+    }
     saveState();
     renderMainTabs();
     renderEpisodeContent();
     updateViewVisibility();
+    renderLeaderboard();
   });
 
   document.getElementById("reopen-episode")?.addEventListener("click", () => {
@@ -3975,35 +4297,51 @@ function markRecapSeen(weekId) {
 }
 
 function generateRecapMarkdown(recap) {
-  const RANK_ICONS = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", "4."];
-  let md = `\uD83D\uDCFA Uge ${recap.weekNum} opsummering (${recap.dateRange})\n\n`;
+  let md = `UGE ${recap.weekNum} — ${recap.dateRange}\n`;
+  md += "─".repeat(30) + "\n\n";
+
+  md += "UGENS STILLING\n";
+  const thursdayEp = getThursdayEpisodeForWeek(recap.weekId || "");
+  const nuttetPicks = thursdayEp ? getNuttetForWeek(thursdayEp.id) : {};
   recap.scoreboard.forEach((s, idx) => {
-    md += `${RANK_ICONS[idx]} ${PLAYER_NAMES[s.playerIndex]} \u2014 ${formatDanishNumber(s.weekPoints)} point denne uge\n`;
+    const rank = String(idx + 1).padStart(2, "0");
+    const name = PLAYER_NAMES[s.playerIndex];
+    const pts = `${formatDanishNumber(s.weekPoints)} point`;
+    const nuttet = nuttetPicks[s.playerIndex] ? ` | Nuttet: ${nuttetPicks[s.playerIndex]}` : "";
+    md += `  ${rank}  ${name} — ${pts}${nuttet}\n`;
   });
   md += "\n";
-  if (recap.highlights.biggestPayout) {
-    const h = recap.highlights.biggestPayout;
-    md += `\uD83D\uDCB0 Ugens gevinst: ${h.player} ramte '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+
+  if (recap.highlights.biggestPayout || recap.highlights.biggestWhiff) {
+    md += "HIGHLIGHTS\n";
+    if (recap.highlights.biggestPayout) {
+      const h = recap.highlights.biggestPayout;
+      md += `  Ugens gevinst: ${h.player} ramte '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+    }
+    if (recap.highlights.biggestWhiff) {
+      const h = recap.highlights.biggestWhiff;
+      md += `  Ugens fiasko: ${h.player} satsede p\u00E5 '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+    }
+    md += "\n";
   }
-  if (recap.highlights.biggestWhiff) {
-    const h = recap.highlights.biggestWhiff;
-    md += `\uD83E\uDD21 Ugens fiasko: ${h.player} satsede p\u00E5 '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day}). Det skete ikke.\n`;
-  }
+
   if (recap.eliminations.length) {
     const names = recap.eliminations.map((e) => e.contestantName).join(" og ");
     const callers = recap.eliminations.flatMap((e) => e.calledBy.map((i) => PLAYER_NAMES[i]));
     const unique = [...new Set(callers)];
     if (unique.length) {
-      md += `\uD83C\uDFAF Eliminering: ${names} r\u00F8g ud. ${unique.join(" og ")} ramte plet!\n`;
+      md += `ELIMINERING: ${names} r\u00F8g ud. ${unique.join(" og ")} ramte plet.\n`;
     } else {
-      md += `\uD83C\uDFAF Eliminering: ${names} r\u00F8g ud. Ingen s\u00E5 det komme.\n`;
+      md += `ELIMINERING: ${names} r\u00F8g ud. Ingen s\u00E5 det komme.\n`;
     }
+    md += "\n";
   }
-  md += "\n\uD83C\uDFC6 S\u00E6sonen indtil nu:\n";
+
+  md += "S\u00C6SONEN INDTIL NU\n";
   recap.seasonStandings.forEach((s) => {
     const name = PLAYER_NAMES[s.playerIndex];
     const rc = s.rankChange || "\u2192";
-    md += `  ${name} (${formatDanishNumber(s.totalPoints)} point) ${rc}\n`;
+    md += `  ${name} — ${formatDanishNumber(s.totalPoints)} point ${rc}\n`;
   });
   md += `\nBejlere tilbage: ${recap.nextWeek.contestantsRemaining}`;
   return md.trim();
@@ -4017,7 +4355,7 @@ function renderWeeklyRecap() {
   if (progress) progress.innerHTML = "";
 
   const allWeeks = getAllWeekIds();
-  const RANK_ICONS = ["\uD83E\uDD47", "\uD83E\uDD48", "\uD83E\uDD49", ""];
+  const RANK_LABELS = ["01", "02", "03", "04"];
 
   const currentWeek = allWeeks.find((wid) => !isWeekComplete(wid));
   if (currentWeek && progress) {
@@ -4056,13 +4394,6 @@ function renderWeeklyRecap() {
     const title = document.createElement("h3");
     title.className = "recap-card__title";
     title.textContent = recap.weekLabel;
-    if (!isNewest) {
-      const chevron = document.createElement("span");
-      chevron.className = "recap-card__chevron";
-      chevron.textContent = "\u25B6";
-      title.prepend(chevron);
-    }
-    header.style.cursor = "pointer";
     header.addEventListener("click", (e) => {
       if (e.target.closest(".recap-card__copy")) return;
       card.classList.toggle("recap-card--collapsed");
@@ -4070,12 +4401,14 @@ function renderWeeklyRecap() {
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "btn btn--ghost recap-card__copy";
-    copyBtn.textContent = "Kopier ugens opsummering";
+    copyBtn.textContent = "Kopier";
     copyBtn.addEventListener("click", () => {
       const md = generateRecapMarkdown(recap);
       navigator.clipboard.writeText(md).then(() => showToast("Kopieret!")).catch(() => showToast("Kunne ikke kopiere"));
     });
-    header.append(title, copyBtn);
+    const toggle = document.createElement("span");
+    toggle.className = "recap-card__toggle";
+    header.append(title, copyBtn, toggle);
     card.append(header);
 
     const cardBody = document.createElement("div");
@@ -4088,19 +4421,25 @@ function renderWeeklyRecap() {
     sbTitle.className = "recap-section__title";
     sbTitle.textContent = "Ugens stilling";
     sbSection.append(sbTitle);
+    const sbThursdayEp = getThursdayEpisodeForWeek(weekId);
+    const sbNuttetPicks = sbThursdayEp ? getNuttetForWeek(sbThursdayEp.id) : {};
     recap.scoreboard.forEach((s, idx) => {
       const row = document.createElement("div");
       row.className = "recap-sb-row" + (idx === 0 ? " recap-sb-row--winner" : "");
       const rank = document.createElement("span");
       rank.className = "recap-sb-row__rank";
-      rank.textContent = RANK_ICONS[idx] || `${s.rank}.`;
+      rank.textContent = RANK_LABELS[idx] || `${s.rank}.`;
       const name = document.createElement("span");
       name.className = "recap-sb-row__name";
       name.textContent = PLAYER_NAMES[s.playerIndex];
       const pts = document.createElement("span");
       pts.className = "recap-sb-row__pts";
       pts.textContent = `${formatDanishNumber(s.weekPoints)} point`;
-      row.append(rank, name, pts);
+      const nuttetPick = sbNuttetPicks[s.playerIndex];
+      const nuttetEl = document.createElement("span");
+      nuttetEl.className = "recap-sb-row__nuttet";
+      nuttetEl.textContent = nuttetPick ? `Nuttet: ${nuttetPick}` : "";
+      row.append(rank, name, pts, nuttetEl);
       if (s.bestEpisodeDay && s.bestEpisodePts > 0) {
         const best = document.createElement("span");
         best.className = "recap-sb-row__best";
@@ -4116,7 +4455,7 @@ function renderWeeklyRecap() {
     const hlItems = [];
     if (hl.biggestPayout) {
       hlItems.push({
-        icon: "\uD83D\uDCB0",
+        icon: "",
         title: "Ugens st\u00F8rste gevinst",
         text: `${hl.biggestPayout.player} ramte '${hl.biggestPayout.text}' til ${formatDanishNumber(hl.biggestPayout.odds)}x (${hl.biggestPayout.day})`,
         accent: "gold",
@@ -4124,7 +4463,7 @@ function renderWeeklyRecap() {
     }
     if (hl.biggestWhiff) {
       hlItems.push({
-        icon: "\uD83E\uDD21",
+        icon: "",
         title: "Ugens st\u00F8rste fiasko",
         text: `${hl.biggestWhiff.player} satsede p\u00E5 '${hl.biggestWhiff.text}' til ${formatDanishNumber(hl.biggestWhiff.odds)}x (${hl.biggestWhiff.day}). Det skete ikke.`,
         accent: "coral",
@@ -4132,9 +4471,9 @@ function renderWeeklyRecap() {
     }
     if (hl.hotStreak) {
       hlItems.push({
-        icon: "\uD83D\uDCC8",
+        icon: "",
         title: "Hot streak",
-        text: `${hl.hotStreak.player} er p\u00E5 en ${hl.hotStreak.count}-episoders stime \uD83D\uDD25`,
+        text: `${hl.hotStreak.player} er p\u00E5 en ${hl.hotStreak.count}-episoders stime`,
         accent: "purple",
       });
     }
@@ -4142,7 +4481,7 @@ function renderWeeklyRecap() {
       const mp = hl.mostPlayedEvent;
       const verb = mp.hit ? "Det skete!" : "Det skete ikke.";
       hlItems.push({
-        icon: "\uD83C\uDFAD",
+        icon: "",
         title: "Ugens mest spillede event",
         text: `${mp.count} af jer satsede p\u00E5 '${mp.text}'. ${verb}`,
         accent: mp.hit ? "gold" : "coral",
@@ -4160,9 +4499,6 @@ function renderWeeklyRecap() {
       for (const item of hlItems) {
         const hlCard = document.createElement("div");
         hlCard.className = `recap-hl-card recap-hl-card--${item.accent}`;
-        const hlIcon = document.createElement("span");
-        hlIcon.className = "recap-hl-card__icon";
-        hlIcon.textContent = item.icon;
         const hlBody = document.createElement("div");
         hlBody.className = "recap-hl-card__body";
         const hlH = document.createElement("strong");
@@ -4172,7 +4508,7 @@ function renderWeeklyRecap() {
         hlP.className = "recap-hl-card__text";
         hlP.textContent = item.text;
         hlBody.append(hlH, hlP);
-        hlCard.append(hlIcon, hlBody);
+        hlCard.append(hlBody);
         hlGrid.append(hlCard);
       }
       hlSection.append(hlGrid);
@@ -4185,7 +4521,7 @@ function renderWeeklyRecap() {
       roseSection.className = "recap-section recap-section--ceremony";
       const roseTitle = document.createElement("h4");
       roseTitle.className = "recap-section__title";
-      roseTitle.textContent = "\uD83C\uDF39 Torsdagens roseceremoni";
+      roseTitle.textContent = "Torsdagens roseceremoni";
       roseSection.append(roseTitle);
       if (!recap.eliminations.length) {
         const p = document.createElement("p");
@@ -4216,7 +4552,7 @@ function renderWeeklyRecap() {
           if (el.calledBy.length) {
             const callers = document.createElement("span");
             callers.className = "recap-elim-person__callers";
-            callers.textContent = el.calledBy.map((i) => `\u2713 ${PLAYER_NAMES[i]}`).join(", ");
+            callers.textContent = "Called by " + el.calledBy.map((i) => PLAYER_NAMES[i]).join(", ");
             textWrap.append(callers);
           }
           wrap.append(textWrap);
@@ -4271,7 +4607,7 @@ function renderWeeklyRecap() {
       if (s.streakCount > 0) {
         const streak = document.createElement("span");
         streak.className = "recap-stand-row__streak";
-        streak.textContent = `\uD83D\uDD25 ${s.streakCount}`;
+        streak.textContent = `Streak ${s.streakCount}`;
         row.append(streak);
       }
       if (s.distanceToFirst > 0) {
@@ -4305,7 +4641,7 @@ function checkNewRecapBanner() {
     const banner = document.createElement("div");
     banner.id = "recap-ready-banner";
     banner.className = "recap-ready-banner";
-    banner.innerHTML = `<span>\uD83D\uDCFA Uge ${seasonWeekNum} opsummering er klar</span>`;
+    banner.innerHTML = `<span>Uge ${seasonWeekNum} opsummering er klar</span>`;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn btn--secondary recap-ready-banner__btn";
@@ -4385,7 +4721,7 @@ function renderUpcomingDeadlineStrip() {
   const diff = soonest.betsLockDeadline - now;
   const isWarn = diff < 6 * 3600000;
   el.className = "upcoming-deadline-strip" + (isWarn ? " upcoming-deadline-strip--warn" : "");
-  el.textContent = "\u23F0 N\u00E6ste lock: " + episodeTabLabel(soonestIdx) + " \u2014 " + formatCountdown(soonest.betsLockDeadline);
+  el.textContent = "N\u00E6ste lock: " + episodeTabLabel(soonestIdx) + " \u2014 " + formatCountdown(soonest.betsLockDeadline);
 }
 
 function checkDeadlineReminder() {
