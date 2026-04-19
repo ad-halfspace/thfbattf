@@ -4561,9 +4561,11 @@ function renderWeeklyRecap() {
   if (currentWeek && progress) {
     const eps = getEpisodesForWeek(currentWeek);
     const closedCount = eps.filter((ep) => isEpisodeClosed(ep)).length;
+    const sortedWeeks = allWeeks.slice().sort();
+    const currentWeekNum = sortedWeeks.indexOf(currentWeek) + 1;
     const strip = document.createElement("div");
     strip.className = "weekly-recap-progress__strip";
-    strip.textContent = `Uge i gang: ${closedCount} af ${eps.length} episoder lukket`;
+    strip.textContent = `Uge ${currentWeekNum} i gang: ${closedCount} af ${eps.length} episoder lukket`;
     progress.append(strip);
   }
 
@@ -4792,10 +4794,7 @@ function renderWeeklyRecap() {
       const ptsEl = document.createElement("span");
       ptsEl.className = "recap-stand-row__pts";
       ptsEl.textContent = `${formatDanishNumber(s.totalPoints)} point`;
-      const weekGain = document.createElement("span");
-      weekGain.className = "recap-stand-row__gain";
-      weekGain.textContent = `+${formatDanishNumber(s.weekPointsGained)} denne uge`;
-      row.append(rankEl, nameEl, ptsEl, weekGain);
+      row.append(rankEl, nameEl, ptsEl);
       if (s.rankChange) {
         const rc = document.createElement("span");
         rc.className = "recap-stand-row__change" +

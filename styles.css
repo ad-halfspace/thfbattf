@@ -4051,9 +4051,16 @@ body {
   margin: 0 0 1rem;
 }
 .recap-section__note {
-  font-size: 0.82rem;
-  color: var(--ink-soft);
-  margin: 0.6rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  background: rgba(180, 155, 100, 0.1);
+  border-left: 3px solid var(--gold-mid);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 0.45rem 0.75rem;
+  margin: 1rem 0 0;
 }
 .recap-section__note--call {
   font-weight: 600;
@@ -4115,9 +4122,9 @@ body {
   white-space: nowrap;
 }
 .recap-sb-row__nuttet {
-  font-size: 0.75rem;
+  grid-column: 2 / -1;
+  font-size: 0.72rem;
   color: var(--ink-soft);
-  white-space: nowrap;
   font-style: italic;
 }
 
