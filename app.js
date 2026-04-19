@@ -432,21 +432,12 @@ function saveNoteDebounced(contestantName, text, delay) {
     if (!trimmed) {
       delete state.contestantNotes[contestantName];
     } else {
-      if (!noteEditHistory[contestantName]) noteEditHistory[contestantName] = [];
-      const prev = state.contestantNotes[contestantName]?.text;
-      if (prev && prev !== trimmed) {
-        noteEditHistory[contestantName].unshift(prev);
-        if (noteEditHistory[contestantName].length > 3) noteEditHistory[contestantName].length = 3;
-      }
-      state.contestantNotes[contestantName] = {
-        text: trimmed.slice(0, 1000),
-        lastEditedBy: currentPlayer || "?",
-      };
+      state.contestantNotes[contestantName] = { text: trimmed.slice(0, 1000) };
     }
     saveState();
     const indicator = document.querySelector(`.cast-note[data-name="${CSS.escape(contestantName)}"] .cast-note__saving`);
     if (indicator) {
-      indicator.textContent = "gemt \u2713";
+      indicator.textContent = "saved \u2713";
       indicator.classList.add("cast-note__saving--visible");
       setTimeout(() => indicator.classList.remove("cast-note__saving--visible"), 1200);
     }
@@ -1099,7 +1090,7 @@ function renderOverview() {
     const editPhoto = document.createElement("button");
     editPhoto.type = "button";
     editPhoto.className = "cast-card__edit-photo";
-    editPhoto.textContent = c.photo ? "\uD83D\uDCF7" : "+ foto";
+    editPhoto.textContent = c.photo ? "edit" : "+ foto";
     editPhoto.addEventListener("click", () => {
       const url = prompt(`Photo URL for ${c.name}:`, c.photo || "");
       if (url === null) return;
@@ -1145,7 +1136,7 @@ function renderOverview() {
       const addLink = document.createElement("button");
       addLink.type = "button";
       addLink.className = "cast-note__add";
-      addLink.textContent = "+ noter\u2026";
+      addLink.textContent = "+ nickname\u2026";
       addLink.addEventListener("click", () => expandNote(noteWrap, c.name));
       noteWrap.append(addLink, saving);
     } else {
@@ -1155,12 +1146,6 @@ function renderOverview() {
       previewText.className = "cast-note__preview-text";
       previewText.textContent = noteData.text.length > 80 ? noteData.text.slice(0, 80) + "\u2026" : noteData.text;
       preview.append(previewText);
-      if (noteData.lastEditedBy) {
-        const metaLine = document.createElement("span");
-        metaLine.className = "cast-note__meta";
-        metaLine.textContent = noteData.lastEditedBy;
-        preview.append(metaLine);
-      }
       preview.addEventListener("click", () => expandNote(noteWrap, c.name));
       noteWrap.append(preview, saving);
     }
@@ -1199,11 +1184,7 @@ function renderOverview() {
 
 let activeNoteEditor = null;
 
-function expandNote(noteWrap, contestantName, playerConfirmed) {
-  if (!playerConfirmed) {
-    promptPlayerPicker(() => expandNote(noteWrap, contestantName, true));
-    return;
-  }
+function expandNote(noteWrap, contestantName) {
   if (noteWrap.querySelector(".cast-note__editor")) return;
 
   const noteData = state.contestantNotes[contestantName];
@@ -1213,25 +1194,9 @@ function expandNote(noteWrap, contestantName, playerConfirmed) {
   const editor = document.createElement("div");
   editor.className = "cast-note__editor";
 
-  const playerBar = document.createElement("div");
-  playerBar.className = "cast-note__player-bar";
-  const playerLabel = document.createElement("span");
-  playerLabel.className = "cast-note__player-label";
-  playerLabel.textContent = `Skriver som: ${currentPlayer}`;
-  const changeBtn = document.createElement("button");
-  changeBtn.type = "button";
-  changeBtn.className = "cast-note__change-player";
-  changeBtn.textContent = "skift";
-  changeBtn.addEventListener("click", () => {
-    promptPlayerPicker(() => {
-      playerLabel.textContent = `Skriver som: ${currentPlayer}`;
-    });
-  });
-  playerBar.append(playerLabel, changeBtn);
-
   const ta = document.createElement("textarea");
   ta.className = "cast-note__textarea";
-  ta.placeholder = "Skriv noter om denne bejler\u2026";
+  ta.placeholder = "Add a nickname\u2026";
   ta.maxLength = 1000;
   ta.value = noteData?.text || "";
   ta.rows = 3;
@@ -1249,53 +1214,39 @@ function expandNote(noteWrap, contestantName, playerConfirmed) {
   const saving = document.createElement("span");
   saving.className = "cast-note__saving";
 
-  ta.addEventListener("input", () => {
-    autoResizeTextarea(ta);
-    updateCounter();
-    saving.textContent = "gemmer\u2026";
-    saving.classList.add("cast-note__saving--visible");
-    saveNoteDebounced(contestantName, ta.value, 2000);
-  });
-
-  ta.addEventListener("blur", (e) => {
-    if (e.relatedTarget && editor.contains(e.relatedTarget)) return;
-    if (document.querySelector(".player-picker-modal")) return;
+  function closeEditor() {
     clearTimeout(noteSaveTimers[contestantName]);
     const trimmed = ta.value.trim();
     if (!trimmed) {
       delete state.contestantNotes[contestantName];
     } else {
-      const prev = state.contestantNotes[contestantName]?.text;
-      if (!noteEditHistory[contestantName]) noteEditHistory[contestantName] = [];
-      if (prev && prev !== trimmed) {
-        noteEditHistory[contestantName].unshift(prev);
-        if (noteEditHistory[contestantName].length > 3) noteEditHistory[contestantName].length = 3;
-      }
-      state.contestantNotes[contestantName] = {
-        text: trimmed.slice(0, 1000),
-        lastEditedBy: currentPlayer || "?",
-      };
+      state.contestantNotes[contestantName] = { text: trimmed.slice(0, 1000) };
     }
     activeNoteEditor = null;
     saveState();
     setTimeout(() => renderOverview(), 100);
-  });
-
-  editor.append(playerBar, ta, counter, saving);
-
-  const history = noteEditHistory[contestantName];
-  if (history?.length) {
-    const histBlock = document.createElement("div");
-    histBlock.className = "cast-note__history";
-    for (const old of history) {
-      const line = document.createElement("p");
-      line.className = "cast-note__history-line";
-      line.textContent = old.length > 60 ? old.slice(0, 60) + "\u2026" : old;
-      histBlock.append(line);
-    }
-    editor.append(histBlock);
   }
 
+  ta.addEventListener("input", () => {
+    autoResizeTextarea(ta);
+    updateCounter();
+    saving.textContent = "saving\u2026";
+    saving.classList.add("cast-note__saving--visible");
+    saveNoteDebounced(contestantName, ta.value, 2000);
+  });
+
+  const doneBtn = document.createElement("button");
+  doneBtn.type = "button";
+  doneBtn.className = "cast-note__done";
+  doneBtn.textContent = "\u2713";
+  doneBtn.title = "Done editing";
+  doneBtn.addEventListener("click", closeEditor);
+
+  const bottomRow = document.createElement("div");
+  bottomRow.className = "cast-note__bottom";
+  bottomRow.append(counter, saving, doneBtn);
+
+  editor.append(ta, bottomRow);
   noteWrap.append(editor);
   ta.focus();
 }
@@ -1618,9 +1569,9 @@ function renderEventBank() {
         saveState();
         updatePreview();
       });
-      const timesLabel = document.createElement("span");
-      timesLabel.className = "event-bank-row__times";
-      timesLabel.textContent = "\u00D7";
+      const oddsWrap = document.createElement("span");
+      oddsWrap.className = "odds-input-wrap";
+      oddsWrap.append(oddsInput);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn btn--secondary event-bank-row__btn";
@@ -1655,7 +1606,7 @@ function renderEventBank() {
         populateMasterEventDatalist();
         renderEventBank();
       });
-      meta.append(phaseBadge, oddsInput, timesLabel, btn, rm);
+      meta.append(phaseBadge, oddsWrap, btn, rm);
       row.append(leftCol, meta);
       body.append(row);
 
@@ -1748,7 +1699,7 @@ function renderMainTabs() {
       const ep = state.episodes[idx];
       const opt = document.createElement("option");
       opt.value = ep.id;
-      opt.textContent = episodeTabLabel(idx) + (ep.closed ? " \u2713" : ep.betsLocked ? " \uD83D\uDD12" : "");
+      opt.textContent = episodeTabLabel(idx) + (ep.closed ? " \u2713" : ep.betsLocked ? " [locked]" : "");
       if (ep.id === state.activeTab) opt.selected = true;
       select.append(opt);
     }
@@ -1808,7 +1759,7 @@ function renderMainTabs() {
       const ep = state.episodes[idx];
       const item = document.createElement("button");
       item.type = "button";
-      const suffix = ep.closed ? " \u2713" : ep.betsLocked ? " \uD83D\uDD12" : "";
+      const suffix = ep.closed ? " \u2713" : ep.betsLocked ? " [locked]" : "";
       item.className = "mobile-drawer__item mobile-drawer__item--ep" + (ep.id === state.activeTab ? " mobile-drawer__item--active" : "");
       item.textContent = episodeTabLabel(idx) + suffix;
       item.addEventListener("click", () => { drawer.hidden = true; backdrop.hidden = true; activateEpisode(ep.id); });
@@ -1937,14 +1888,14 @@ function renderEvents() {
       renderEpisodeScoreSummary();
       renderLeaderboard();
     });
-    const timesLabel = document.createElement("span");
-    timesLabel.className = "event-row__times";
-    timesLabel.textContent = "\u00d7";
+    const oddsWrap = document.createElement("span");
+    oddsWrap.className = "odds-input-wrap";
+    oddsWrap.append(oddsInput);
     if (!closed) {
       const rm = document.createElement("button");
       rm.type = "button";
       rm.className = "event-row__remove";
-      rm.textContent = "Remove";
+      rm.textContent = "\u00D7";
       if (frozen) rm.disabled = true;
       rm.addEventListener("click", () => {
         ep.events = ep.events.filter((x) => x.id !== ev.id);
@@ -1960,9 +1911,9 @@ function renderEvents() {
         renderEpisodeScoreSummary();
         renderLeaderboard();
       });
-      meta.append(oddsInput, timesLabel, rm);
+      meta.append(oddsWrap, rm);
     } else {
-      meta.append(oddsInput, timesLabel);
+      meta.append(oddsWrap);
     }
     li.append(p, meta);
     root.append(li);
@@ -2886,19 +2837,28 @@ function renderMyStats() {
   contentRoot.innerHTML = "";
 
   if (statsViewMode === "overview") {
+    const hero = document.createElement("header");
+    hero.className = "page-hero";
     const h2 = document.createElement("h2");
     h2.id = "my-stats-heading";
-    h2.className = "panel__title";
-    h2.textContent = "Stats overview";
-    headerRoot.append(h2);
+    h2.className = "page-hero__title";
+    h2.textContent = "Player stats";
+    const tagline = document.createElement("p");
+    tagline.className = "page-hero__tagline";
+    tagline.textContent = "Stats overview across all players.";
+    hero.append(h2, tagline);
+    headerRoot.append(hero);
     renderAllPlayersOverview(contentRoot);
   } else {
     const p = selectedStatsPlayer;
+    const hero = document.createElement("header");
+    hero.className = "page-hero";
     const h2 = document.createElement("h2");
     h2.id = "my-stats-heading";
-    h2.className = "panel__title";
+    h2.className = "page-hero__title";
     h2.textContent = `${PLAYER_NAMES[p]}'s stats`;
-    headerRoot.append(h2);
+    hero.append(h2);
+    headerRoot.append(hero);
     renderSinglePlayerStats(contentRoot, p);
   }
 }
@@ -3384,7 +3344,7 @@ function renderAbout() {
   root.innerHTML = `
 <header class="about-hero">
   <h1 class="about__h1" id="about-heading">About</h1>
-  <p class="about-hero__tagline">The story behind the bets, the odds, and the feelings column.</p>
+  <p class="about-hero__tagline">The story behind the bets, the name, and the nuttet column.</p>
 </header>
 
 <article class="about-body">
@@ -3860,46 +3820,59 @@ function renderNuttetOverview() {
     return;
   }
   root.hidden = false;
+  root.className = "running-section";
 
+  const left = document.createElement("div");
+  left.className = "running-section__left";
   const title = document.createElement("h3");
-  title.className = "overview-block__title panel__title";
+  title.className = "running-section__heading";
   title.textContent = "Season's most cute";
-  root.append(title);
+  left.append(title);
+  root.append(left);
 
-  const list = document.createElement("div");
-  list.className = "nuttet-ranking";
+  const grid = document.createElement("div");
+  grid.className = "nuttet-ranking-grid";
 
   ranking.forEach(({ name, count, photoUrl }) => {
-    const row = document.createElement("div");
-    row.className = "nuttet-ranking__row";
+    const card = document.createElement("div");
+    card.className = "nuttet-ranking-card";
 
     if (photoUrl) {
       const img = document.createElement("img");
-      img.className = "nuttet-ranking__photo";
+      img.className = "nuttet-ranking-card__photo";
       img.src = photoUrl;
       img.alt = name;
       img.loading = "lazy";
-      row.append(img);
+      card.append(img);
     } else {
       const fb = document.createElement("span");
-      fb.className = "nuttet-ranking__fb";
+      fb.className = "nuttet-ranking-card__fb";
       fb.textContent = name.charAt(0).toUpperCase();
-      row.append(fb);
+      card.append(fb);
     }
 
     const nameEl = document.createElement("span");
-    nameEl.className = "nuttet-ranking__name";
+    nameEl.className = "nuttet-ranking-card__name";
     nameEl.textContent = name;
 
     const countEl = document.createElement("span");
-    countEl.className = "nuttet-ranking__count";
+    countEl.className = "nuttet-ranking-card__count";
     countEl.textContent = `\u00D7${count}`;
 
-    row.append(nameEl, countEl);
-    list.append(row);
+    card.append(nameEl, countEl);
+
+    const noteData = state.contestantNotes?.[name];
+    if (noteData?.text) {
+      const noteEl = document.createElement("p");
+      noteEl.className = "nuttet-ranking-card__note";
+      noteEl.textContent = noteData.text;
+      card.append(noteEl);
+    }
+
+    grid.append(card);
   });
 
-  root.append(list);
+  root.append(grid);
 }
 
 function renderEpisodeContent() {
@@ -3910,6 +3883,36 @@ function renderEpisodeContent() {
   if (workspace) {
     workspace.classList.toggle("episode--closed", closed);
   }
+
+  const heroEl = document.getElementById("episode-hero");
+  if (heroEl) {
+    heroEl.innerHTML = "";
+    if (ep) {
+      const epIdx = state.episodes.indexOf(ep);
+      const weekId = ep.airDate ? getWeekId(ep.airDate) : null;
+      const allWeeks = getAllWeekIds().slice().sort();
+      const weekNum = weekId ? allWeeks.indexOf(weekId) + 1 : null;
+      const dayName = ep.airDate ? getDayOfWeekDanish(ep.airDate) : null;
+
+      const h2 = document.createElement("h2");
+      h2.className = "page-hero__title";
+      h2.textContent = `Episode ${epIdx + 1}`;
+
+      const tagline = document.createElement("p");
+      tagline.className = "page-hero__tagline";
+      const parts = [];
+      if (weekNum) parts.push(`Week ${weekNum}`);
+      if (dayName) parts.push(dayName);
+      if (ep.airDate) {
+        const d = new Date(ep.airDate + "T12:00:00");
+        parts.push(d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }));
+      }
+      tagline.textContent = parts.join(" \u00B7 ");
+
+      heroEl.append(h2, tagline);
+    }
+  }
+
   const addGuySection = document.querySelector("#episode-workspace .inline-actions");
   const addEventSection = document.querySelector("#episode-workspace .add-event");
   if (addGuySection) addGuySection.hidden = closed;
@@ -3933,16 +3936,7 @@ function renderEpisodeContent() {
   }
 
   const deadlineEl = document.getElementById("deadline-display");
-  if (deadlineEl && ep) {
-    if (ep.betsLockDeadline && !closed && !betsLocked) {
-      deadlineEl.hidden = false;
-      renderDeadlineDisplay(deadlineEl, ep);
-    } else {
-      deadlineEl.hidden = true;
-    }
-  } else if (deadlineEl) {
-    deadlineEl.hidden = true;
-  }
+  if (deadlineEl) deadlineEl.hidden = true;
 
   const closeBtn = document.getElementById("close-episode");
   const reopenBtn = document.getElementById("reopen-episode");
@@ -3986,6 +3980,22 @@ function renderEpisodeContent() {
       });
       elimLabel.append(cb, document.createTextNode(" Roseceremoni"));
       airDateBar.append(label, input, elimLabel);
+
+      if (ep.betsLockDeadline && !betsLocked) {
+        const dlSpan = document.createElement("span");
+        dlSpan.className = "episode-airdate-bar__deadline";
+        const now = Date.now();
+        const dl = ep.betsLockDeadline;
+        const diff = dl - now;
+        if (diff <= 0) {
+          dlSpan.textContent = "Auto-l\u00E5ser nu\u2026";
+          dlSpan.classList.add("episode-airdate-bar__deadline--warn");
+        } else {
+          dlSpan.textContent = "Bets l\u00E5ses " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
+          if (diff < 6 * 3600000) dlSpan.classList.add("episode-airdate-bar__deadline--warn");
+        }
+        airDateBar.append(dlSpan);
+      }
     }
   } else if (airDateBar) {
     airDateBar.hidden = true;
@@ -4013,15 +4023,15 @@ function renderDeadlineDisplay(el, ep) {
   const dl = ep.betsLockDeadline;
   if (ep.betsLocked) {
     el.className = "deadline-display deadline-display--locked";
-    el.textContent = "\uD83D\uDD12 L\u00E5st" + (ep.betsLockedAt ? " \u00B7 " + formatDeadlineTime(ep.betsLockedAt) : "");
+    el.textContent = "L\u00E5st" + (ep.betsLockedAt ? " \u00B7 " + formatDeadlineTime(ep.betsLockedAt) : "");
   } else if (now >= dl) {
     el.className = "deadline-display deadline-display--warn";
-    el.textContent = "\u23F3 Auto-l\u00E5ser nu\u2026";
+    el.textContent = "Auto-l\u00E5ser nu\u2026";
   } else {
     const diff = dl - now;
     const isWarn = diff < 6 * 3600000;
     el.className = "deadline-display" + (isWarn ? " deadline-display--warn" : "");
-    el.textContent = "\u23F0 Bets l\u00E5ses " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
+    el.textContent = "Bets l\u00E5ses " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
   }
 }
 
@@ -4033,6 +4043,16 @@ function guysAfterEliminations(ep) {
 }
 
 function wireActions() {
+  const castAddModal = document.getElementById("cast-add-modal");
+  document.getElementById("cast-add-toggle")?.addEventListener("click", () => {
+    if (castAddModal) castAddModal.hidden = false;
+  });
+  document.getElementById("cast-add-cancel")?.addEventListener("click", () => {
+    if (castAddModal) castAddModal.hidden = true;
+  });
+  castAddModal?.addEventListener("click", (e) => {
+    if (e.target === castAddModal) castAddModal.hidden = true;
+  });
   document.getElementById("cast-add-btn")?.addEventListener("click", () => {
     const nameEl = document.getElementById("cast-add-name");
     const photoEl = document.getElementById("cast-add-photo");
@@ -4042,6 +4062,7 @@ function wireActions() {
     ensureInCast(name, photo);
     nameEl.value = "";
     photoEl.value = "";
+    if (castAddModal) castAddModal.hidden = true;
     saveState();
     renderOverview();
   });
@@ -4125,6 +4146,16 @@ function wireActions() {
     safe(renderEventBank, "renderEventBank");
   });
 
+  const addGuyModal = document.getElementById("add-guy-modal");
+  document.getElementById("add-guy-toggle")?.addEventListener("click", () => {
+    if (addGuyModal) addGuyModal.hidden = false;
+  });
+  document.getElementById("add-guy-cancel")?.addEventListener("click", () => {
+    if (addGuyModal) addGuyModal.hidden = true;
+  });
+  addGuyModal?.addEventListener("click", (e) => {
+    if (e.target === addGuyModal) addGuyModal.hidden = true;
+  });
   document.getElementById("add-guy")?.addEventListener("click", () => {
     const ep = activeEpisode();
     const input = document.getElementById("new-guy-name");
@@ -4137,6 +4168,7 @@ function wireActions() {
     ensureInCast(name, photo);
     input.value = "";
     if (photoInput) photoInput.value = "";
+    if (addGuyModal) addGuyModal.hidden = true;
     saveState();
     renderGuys();
     renderEliminationBets();
@@ -4689,7 +4721,7 @@ function autoLockTick() {
       ep.betsLockedAt = now;
       changed = true;
       const idx = state.episodes.indexOf(ep);
-      showToast("\uD83D\uDD12 Bets auto-l\u00E5st for " + episodeTabLabel(idx));
+      showToast("Bets auto-l\u00E5st for " + episodeTabLabel(idx));
     }
   }
   if (changed) {
@@ -4734,7 +4766,7 @@ function checkDeadlineReminder() {
       if (!localStorage.getItem(key)) {
         localStorage.setItem(key, "1");
         const idx = state.episodes.indexOf(ep);
-        showToast("\u23F0 Bets for " + episodeTabLabel(idx) + " l\u00E5ses om " + formatCountdown(ep.betsLockDeadline) + ". Har du valgt?");
+        showToast("Bets for " + episodeTabLabel(idx) + " l\u00E5ses om " + formatCountdown(ep.betsLockDeadline) + ". Har du valgt?");
       }
     }
   }

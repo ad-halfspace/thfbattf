@@ -44,7 +44,7 @@
 }
 
 html {
-  font-size: 17px;
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -75,7 +75,7 @@ body {
 .app {
   position: relative;
   z-index: 1;
-  max-width: 1100px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 3rem 2.5rem 5rem;
 }
@@ -214,7 +214,7 @@ body {
   font-weight: 400;
   color: var(--ink-soft);
   line-height: 1.65;
-  max-width: 38rem;
+  max-width: none;
 }
 
 .panel__hint a {
@@ -238,6 +238,7 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1rem;
+  margin-bottom: 2rem;
 }
 
 .cast-card {
@@ -519,17 +520,43 @@ body {
   border-color: var(--rose-red);
 }
 
+.cast-note__bottom {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.3rem;
+}
+
 .cast-note__counter {
-  display: block;
-  text-align: right;
   font-size: 0.65rem;
   color: var(--ink-soft);
-  margin-top: 0.15rem;
   min-height: 0.85em;
 }
 .cast-note__counter--warn {
   color: var(--rose-red);
   font-weight: 600;
+}
+
+.cast-note__done {
+  margin-left: auto;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.cast-note__done:hover {
+  background: var(--gold-mid);
+  color: #fff;
+  border-color: var(--gold-mid);
 }
 
 .cast-note__saving {
@@ -615,7 +642,8 @@ body {
 }
 
 .bet-bank-phase-explainer {
-  margin-bottom: 1.25rem;
+  margin-top: 1rem;
+  margin-bottom: 0;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: transparent;
@@ -715,13 +743,9 @@ body {
 .event-bank-toolbar__hint {
   margin: 0;
   font-size: 0.75rem;
-  flex: 1 1 100%;
-}
-
-@media (min-width: 640px) {
-  .event-bank-toolbar__hint {
-    flex: 0 1 auto;
-  }
+  flex: 1 1 0;
+  text-align: right;
+  line-height: 1.4;
 }
 
 .event-bank-list {
@@ -1086,11 +1110,12 @@ body {
 }
 
 .episode-tabs {
-  margin-bottom: 3rem;
+  margin-bottom: 1.5rem;
   padding-bottom: 0;
   position: sticky;
   top: 0;
   z-index: 100;
+  font-size: 1.133rem;
 }
 
 /* desktop tab row */
@@ -1300,11 +1325,12 @@ body {
 }
 
 .episode-extras {
+  grid-column: 1 / -1;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.85rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
 }
 
 .tab {
@@ -1683,40 +1709,24 @@ body {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.85rem 1.15rem;
-  background: transparent;
-  border: 1px solid var(--line-warm);
+  padding: 1rem 1.5rem;
+  background: var(--ink);
+  border: none;
   border-radius: var(--radius);
-  margin-bottom: 0.25rem;
-}
-
-.episode-lock-banner__icon {
-  font-size: 1.2rem;
-  flex-shrink: 0;
+  margin-bottom: 1rem;
 }
 
 .episode-lock-banner__text {
-  font-size: 0.8125rem;
-  color: var(--ink);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.85);
   line-height: 1.5;
 }
 
 .episode-lock-banner__text strong {
-  color: var(--gold-deep);
+  color: var(--gold-light);
 }
 
 .episode--closed .panel {
-  opacity: 0.75;
-  pointer-events: none;
-  position: relative;
-}
-
-.episode--closed .panel::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: var(--radius);
-  background: rgba(240, 235, 227, 0.3);
   pointer-events: none;
 }
 
@@ -1732,7 +1742,6 @@ body {
   border-radius: var(--radius);
   margin-bottom: 0.25rem;
 }
-.bets-lock-banner__icon { font-size: 1.1rem; flex-shrink: 0; }
 .bets-lock-banner__text {
   font-size: 0.8125rem;
   color: var(--ink);
@@ -1792,6 +1801,17 @@ body {
   width: 1rem;
   height: 1rem;
   cursor: pointer;
+}
+.episode-airdate-bar__deadline {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  font-style: italic;
+}
+.episode-airdate-bar__deadline--warn {
+  color: var(--rose-red);
+  font-weight: 600;
+  font-style: normal;
 }
 
 /* ── Upcoming deadline strip (overview) ── */
@@ -1882,12 +1902,11 @@ body {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  background: rgba(30, 27, 24, 0.3);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  background: rgba(240, 235, 227, 0.85);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding-top: 15vh;
   animation: fadeIn 0.2s var(--ease);
 }
 .modal-overlay__box {
@@ -1940,10 +1959,27 @@ body {
   outline: none;
   border-color: var(--ink);
 }
+.modal-overlay__box > .input {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.88rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  box-sizing: border-box;
+}
+.modal-overlay__box > .input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
 .modal-overlay__actions {
   display: flex;
   gap: 0.6rem;
   align-items: center;
+  margin-top: 1rem;
 }
 
 /* ── Locked bet card overlay ── */
@@ -1989,35 +2025,50 @@ body {
   border: 1.5px solid var(--stone);
 }
 
-.event-row__odds-input {
-  width: 4.2rem;
-  padding: 0.3rem 0.4rem;
-  border-radius: var(--radius-sm);
+.odds-input-wrap {
+  display: inline-flex;
+  align-items: center;
   background: var(--cream-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding-right: 0.4rem;
+}
+
+.odds-input-wrap::after {
+  content: "\00D7";
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--gold-deep);
+  line-height: 1;
+}
+
+.event-row__odds-input,
+.event-bank-row__odds-input {
+  width: 3.2rem;
+  padding: 0.3rem 0.2rem 0.3rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: transparent;
   color: var(--gold-deep);
   font-weight: 700;
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   text-align: right;
-  border: 1px solid var(--line);
+  border: none;
   font-family: inherit;
 }
 
-.event-row__odds-input:focus {
+.event-row__odds-input:focus,
+.event-bank-row__odds-input:focus {
   outline: none;
+}
+
+.odds-input-wrap:focus-within {
   border-color: var(--ink);
 }
 
 .event-row__odds-input:disabled {
   opacity: 0.65;
   cursor: not-allowed;
-}
-
-.event-row__times {
-  font-weight: 700;
-  font-size: 0.82rem;
-  color: var(--gold-deep);
-  line-height: 1;
 }
 
 .event-row__meta {
@@ -2028,22 +2079,27 @@ body {
 }
 
 .event-row__remove {
-  font-size: 0.68rem;
+  width: 1.5rem;
+  height: 1.5rem;
+  font-size: 0.85rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  line-height: 1;
   color: var(--ink-soft);
-  background: none;
-  border: none;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 50%;
   cursor: pointer;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 
 .event-row__remove:hover {
   color: var(--rose-red);
-  border-bottom-color: var(--rose-soft);
+  border-color: var(--rose-red);
+  background: var(--rose-soft);
 }
 
 .bets-grid {
@@ -2395,7 +2451,7 @@ body {
 /* ── Still in the running (ISI-inspired split) ── */
 .running-section {
   display: grid;
-  grid-template-columns: 1fr 1.6fr;
+  grid-template-columns: 14rem 1fr;
   gap: 2.5rem;
   align-items: start;
 }
@@ -2441,7 +2497,7 @@ body {
 
 .running-section__right {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
 }
 
@@ -2958,7 +3014,7 @@ body {
 /* ── My stats ── */
 
 .my-stats-section {
-  max-width: 960px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -3587,7 +3643,7 @@ body {
 /* ── Season bets ── */
 
 .season-bets-section {
-  max-width: 960px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -4245,7 +4301,7 @@ body {
 /* ── About page ── */
 
 .about-page {
-  max-width: 1100px;
+  max-width: 100%;
   margin: 0 auto;
 }
 
@@ -4255,15 +4311,15 @@ body {
   padding: 0 0 4rem;
 }
 
-/* hero */
-.about-hero {
+/* Shared page hero header */
+.page-hero {
   text-align: left;
-  padding: 2rem 0 2.5rem;
-  margin-bottom: 3.5rem;
+  padding: 1.5rem 0 1.5rem;
+  margin-bottom: 1.75rem;
   border-bottom: 1px solid var(--line);
 }
 
-.about__h1 {
+.page-hero__title {
   font-family: var(--font-display);
   font-weight: 700;
   font-size: 3.5rem;
@@ -4272,14 +4328,25 @@ body {
   letter-spacing: -0.03em;
 }
 
-.about-hero__tagline {
+.page-hero__tagline {
   font-size: 1.05rem;
   color: var(--ink-soft);
   font-style: italic;
   margin: 0;
   letter-spacing: 0.01em;
-  max-width: 28rem;
+  max-width: none;
 }
+
+.page-hero--episode {
+  grid-column: 1 / -1;
+  margin-bottom: 1.5rem;
+  padding-bottom: 2rem;
+}
+
+/* About page aliases */
+.about-hero { text-align: left; padding: 2rem 0 2.5rem; margin-bottom: 3.5rem; border-bottom: 1px solid var(--line); }
+.about__h1 { font-family: var(--font-display); font-weight: 700; font-size: 3.5rem; margin: 0 0 0.6rem; color: var(--ink); letter-spacing: -0.03em; }
+.about-hero__tagline { font-size: 1.05rem; color: var(--ink-soft); font-style: italic; margin: 0; letter-spacing: 0.01em; max-width: 28rem; }
 
 /* body */
 .about-body {
@@ -4311,7 +4378,7 @@ body {
 }
 
 .about-split__content {
-  max-width: 38rem;
+  max-width: none;
 }
 
 /* dividers between sections */
@@ -4502,14 +4569,14 @@ body {
 
 /* mobile */
 @media (max-width: 700px) {
-  .about-hero {
+  .page-hero, .about-hero {
     padding: 1.5rem 0 2rem;
     margin-bottom: 2.5rem;
   }
-  .about__h1 {
+  .page-hero__title, .about__h1 {
     font-size: 2.4rem;
   }
-  .about-hero__tagline {
+  .page-hero__tagline, .about-hero__tagline {
     font-size: 0.92rem;
   }
   .about-split {
@@ -4619,37 +4686,35 @@ body {
   cursor: default;
 }
 
-/* Overview ranking */
-.nuttet-ranking {
-  background: transparent;
-  border: none;
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.nuttet-ranking__row {
-  display: flex;
-  align-items: center;
+/* Overview ranking — card grid */
+.nuttet-ranking-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
-  padding: 0.7rem 1.25rem;
-  border-bottom: 1px solid var(--line);
 }
 
-.nuttet-ranking__row:last-child {
-  border-bottom: none;
+.nuttet-ranking-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  gap: 0.5rem;
 }
 
-.nuttet-ranking__photo {
-  width: 2rem;
-  height: 2rem;
+.nuttet-ranking-card__photo {
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 50%;
   object-fit: cover;
-  flex-shrink: 0;
 }
 
-.nuttet-ranking__fb {
-  width: 2rem;
-  height: 2rem;
+.nuttet-ranking-card__fb {
+  width: 3.5rem;
+  height: 3.5rem;
   border-radius: 50%;
   background: var(--line);
   color: var(--ink-soft);
@@ -4661,18 +4726,37 @@ body {
   flex-shrink: 0;
 }
 
-.nuttet-ranking__name {
+.nuttet-ranking-card__name {
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 0.9rem;
-  flex: 1 1 auto;
 }
 
-.nuttet-ranking__count {
+.nuttet-ranking-card__count {
   font-family: var(--font-display);
   font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--gold-deep);
+  font-size: 1.3rem;
+  color: var(--ink);
+}
+
+.nuttet-ranking-card__note {
+  font-size: 0.75rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  line-height: 1.4;
+  margin-top: 0.25rem;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+@media (max-width: 600px) {
+  .nuttet-ranking-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 /* Cast card nuttet badge */

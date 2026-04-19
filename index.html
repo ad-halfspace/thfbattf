@@ -29,27 +29,6 @@
 
       <nav class="episode-nav" aria-label="Leaderboard, cast, bet bank og episoder">
         <div id="main-tabs" class="episode-tabs"></div>
-        <div id="episode-extras" class="episode-extras">
-          <div id="add-episode-modal" class="modal-overlay" hidden>
-            <div class="modal-overlay__box">
-              <h3 class="modal-overlay__title">New episode</h3>
-              <label class="modal-overlay__field">
-                <span class="modal-overlay__label">Air date</span>
-                <input type="date" id="new-ep-airdate" class="input" />
-              </label>
-              <div class="modal-overlay__actions">
-                <button type="button" id="add-episode" class="btn btn--secondary">Create episode</button>
-                <button type="button" id="add-episode-cancel" class="btn btn--ghost">Cancel</button>
-              </div>
-            </div>
-          </div>
-          <button type="button" id="lock-bets" class="btn btn--lock-bets" hidden>&#128274; Lock bets now</button>
-          <button type="button" id="unlock-bets" class="btn btn--unlock-bets" hidden>&#128275; Unlock bets</button>
-          <button type="button" id="close-episode" class="btn btn--lock" hidden>Close episode</button>
-          <button type="button" id="reopen-episode" class="btn btn--unlock" hidden>Reopen episode</button>
-          <button type="button" id="delete-episode" class="btn btn--delete">Delete episode</button>
-          <button type="button" id="add-episode-toggle" class="btn btn--add-episode">+ Add episode</button>
-        </div>
       </nav>
 
       <section
@@ -65,6 +44,19 @@
 
         <hr class="overview-divider" />
 
+        <div id="overview-nuttet" class="overview-block" hidden></div>
+
+        <hr class="overview-divider" />
+
+        <div class="running-section">
+          <div class="running-section__left">
+            <h3 class="running-section__heading">All bets</h3>
+          </div>
+          <div id="overview-all-bets"></div>
+        </div>
+
+        <hr class="overview-divider" />
+
         <div class="running-section" id="overview-running-section">
           <div class="running-section__left">
             <span class="running-section__tag">The contestants</span>
@@ -74,17 +66,6 @@
           <div class="running-section__right" id="overview-running-guys"></div>
         </div>
         <div id="overview-streak-leaders" class="overview-streak-leaders" hidden></div>
-
-        <hr class="overview-divider" />
-
-        <div id="overview-nuttet" class="overview-block" hidden></div>
-
-        <hr class="overview-divider" />
-
-        <div class="overview-block">
-          <h3 class="overview-block__title panel__title">All bets</h3>
-          <div id="overview-all-bets"></div>
-        </div>
       </section>
 
       <section
@@ -93,7 +74,10 @@
         aria-labelledby="cast-heading"
         hidden
       >
-        <h2 id="cast-heading" class="panel__title">Bachelorette 4 (2026) — de 16 bejlere</h2>
+        <header class="page-hero">
+          <h2 id="cast-heading" class="page-hero__title">Cast</h2>
+          <p class="page-hero__tagline">Bachelorette 4 (2026) — the 16 contestants</p>
+        </header>
         <p class="panel__hint">
           Mie Borup og Sofie Sytnik Jørgensen dater 16 mænd på Sicilien. Premiere tirsdag 21. april 2026.
           Cast og fotos fra
@@ -105,26 +89,16 @@
           >.
         </p>
         <div id="cast-grid" class="cast-grid"></div>
-        <div class="cast-add-form">
-          <h3 class="cast-add-form__title panel__title">Add a new contestant</h3>
-          <p class="panel__hint">New guys automatically appear in future episodes and all dropdowns.</p>
-          <div class="cast-add-form__row">
-            <input
-              type="text"
-              id="cast-add-name"
-              class="input"
-              placeholder="Name"
-              maxlength="48"
-              autocomplete="off"
-            />
-            <input
-              type="url"
-              id="cast-add-photo"
-              class="input"
-              placeholder="Photo URL (optional)"
-              autocomplete="off"
-            />
-            <button type="button" id="cast-add-btn" class="btn btn--secondary">Add</button>
+        <button type="button" id="cast-add-toggle" class="btn btn--add-episode">+ Add contestant</button>
+        <div id="cast-add-modal" class="modal-overlay" hidden>
+          <div class="modal-overlay__box">
+            <h3 class="modal-overlay__title">Add a new contestant</h3>
+            <input type="text" id="cast-add-name" class="input" placeholder="Name" maxlength="48" autocomplete="off" />
+            <input type="url" id="cast-add-photo" class="input" placeholder="Photo URL (optional)" autocomplete="off" />
+            <div class="modal-overlay__actions">
+              <button type="button" id="cast-add-btn" class="btn btn--secondary">Add</button>
+              <button type="button" id="cast-add-cancel" class="btn btn--unlock">Cancel</button>
+            </div>
           </div>
         </div>
       </section>
@@ -135,12 +109,10 @@
         aria-labelledby="event-bank-heading"
         hidden
       >
-        <h2 id="event-bank-heading" class="panel__title">Bet bank</h2>
-        <p class="panel__hint">
-          Ready-made events grouped by category. Pick an episode, tweak the odds if you like, then hit
-          <strong>Add</strong>. Create your own bets at the bottom.
-        </p>
-        <details class="bet-bank-phase-explainer">
+        <header class="page-hero">
+          <h2 id="event-bank-heading" class="page-hero__title">Bet bank</h2>
+          <p class="page-hero__tagline">Ready-made events grouped by category. Pick an episode, tweak the odds if you like, then hit Add.</p>
+          <details class="bet-bank-phase-explainer">
           <summary class="bet-bank-phase-explainer__toggle">How do phase-adjusted odds work?</summary>
           <div class="bet-bank-phase-explainer__body">
             <p>
@@ -167,12 +139,13 @@
             </p>
           </div>
         </details>
+        </header>
         <div class="event-bank-toolbar">
           <label class="event-bank-toolbar__label" for="bank-target-episode">Add into episode</label>
           <select id="bank-target-episode" class="input event-bank-select" aria-describedby="bank-target-hint">
             <option value="">— Select episode —</option>
           </select>
-          <span id="bank-target-hint" class="panel__hint event-bank-toolbar__hint">Required before using Add on each row.</span>
+          <span id="bank-target-hint" class="panel__hint event-bank-toolbar__hint">Required before using Add<br/>on each row.</span>
         </div>
         <div class="event-bank-filters">
           <div class="event-bank-search-row">
@@ -234,7 +207,10 @@
         aria-labelledby="weekly-recap-heading"
         hidden
       >
-        <h2 id="weekly-recap-heading" class="panel__title" style="font-size:2rem;font-weight:400;margin-bottom:1.5rem;">Ugentlig opsummering</h2>
+        <header class="page-hero">
+          <h2 id="weekly-recap-heading" class="page-hero__title">Weekly recap</h2>
+          <p class="page-hero__tagline">Weekly summary of points, highlights, and eliminations.</p>
+        </header>
         <div id="weekly-recap-progress" class="weekly-recap-progress"></div>
         <div id="weekly-recap-cards" class="weekly-recap-cards"></div>
       </section>
@@ -245,11 +221,10 @@
         aria-labelledby="season-bets-heading"
         hidden
       >
-        <h2 id="season-bets-heading" class="panel__title">Season bets</h2>
-        <p class="panel__hint">
-          One-time predictions placed before the season starts. Lock them in,
-          then see how you did at the finale. Points are added to the main leaderboard.
-        </p>
+        <header class="page-hero">
+          <h2 id="season-bets-heading" class="page-hero__title">Season bets</h2>
+          <p class="page-hero__tagline">One-time predictions placed before the season starts. Lock them in, then see how you did at the finale.</p>
+        </header>
         <div id="season-bets-lock-bar" class="season-bets-lock-bar"></div>
         <div id="season-bets-cards" class="season-bets-cards"></div>
         <div id="season-results-section" class="season-results-section">
@@ -279,11 +254,31 @@
 
       <main id="episode-workspace" class="main-grid" hidden>
         <div id="episode-lock-banner" class="episode-lock-banner" hidden>
-          <span class="episode-lock-banner__icon">&#128274;</span>
-          <span class="episode-lock-banner__text">This episode is closed. Scores are final. <strong>Reopen</strong> above if you need to make changes.</span>
+          <span class="episode-lock-banner__text">This episode is closed. Scores are final. <strong>Reopen</strong> below if you need to make changes.</span>
+        </div>
+        <header id="episode-hero" class="page-hero page-hero--episode"></header>
+        <div id="episode-extras" class="episode-extras">
+          <div id="add-episode-modal" class="modal-overlay" hidden>
+            <div class="modal-overlay__box">
+              <h3 class="modal-overlay__title">New episode</h3>
+              <label class="modal-overlay__field">
+                <span class="modal-overlay__label">Air date</span>
+                <input type="date" id="new-ep-airdate" class="input" />
+              </label>
+              <div class="modal-overlay__actions">
+                <button type="button" id="add-episode" class="btn btn--secondary">Create episode</button>
+                <button type="button" id="add-episode-cancel" class="btn btn--ghost">Cancel</button>
+              </div>
+            </div>
+          </div>
+          <button type="button" id="lock-bets" class="btn btn--lock-bets" hidden>Lock bets now</button>
+          <button type="button" id="unlock-bets" class="btn btn--unlock-bets" hidden>Unlock bets</button>
+          <button type="button" id="close-episode" class="btn btn--lock" hidden>Close episode</button>
+          <button type="button" id="reopen-episode" class="btn btn--unlock" hidden>Reopen episode</button>
+          <button type="button" id="delete-episode" class="btn btn--delete">Delete episode</button>
+          <button type="button" id="add-episode-toggle" class="btn btn--add-episode">+ Add episode</button>
         </div>
         <div id="bets-lock-banner" class="bets-lock-banner" hidden>
-          <span class="bets-lock-banner__icon">&#128274;</span>
           <span id="bets-lock-banner-text" class="bets-lock-banner__text">Bets are locked.</span>
         </div>
         <p id="episode-score-top" class="score-summary score-summary--top panel--wide" hidden></p>
@@ -292,22 +287,17 @@
         <section class="panel" aria-labelledby="guys-heading">
           <h2 id="guys-heading" class="panel__title">Contestants this episode</h2>
           <div id="guys-grid" class="guys-grid"></div>
-          <div class="inline-actions">
-            <input
-              type="text"
-              id="new-guy-name"
-              class="input"
-              placeholder="Name"
-              maxlength="48"
-            />
-            <input
-              type="url"
-              id="new-guy-photo"
-              class="input"
-              placeholder="Photo URL (optional)"
-              autocomplete="off"
-            />
-            <button type="button" id="add-guy" class="btn btn--secondary">Add</button>
+          <button type="button" id="add-guy-toggle" class="btn btn--add-episode">+ Add contestant</button>
+          <div id="add-guy-modal" class="modal-overlay" hidden>
+            <div class="modal-overlay__box">
+              <h3 class="modal-overlay__title">Add contestant to episode</h3>
+              <input type="text" id="new-guy-name" class="input" placeholder="Name" maxlength="48" />
+              <input type="url" id="new-guy-photo" class="input" placeholder="Photo URL (optional)" autocomplete="off" />
+              <div class="modal-overlay__actions">
+                <button type="button" id="add-guy" class="btn btn--secondary">Add</button>
+                <button type="button" id="add-guy-cancel" class="btn btn--unlock">Cancel</button>
+              </div>
+            </div>
           </div>
         </section>
 
