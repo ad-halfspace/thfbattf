@@ -8,6 +8,7 @@ const EVENT_BANK = "event-bank";
 const SEASON_BETS = "season-bets";
 const WEEKLY_RECAP = "weekly-recap";
 const MY_STATS = "my-stats";
+const ABOUT = "about";
 
 const EXPECTED_SEASON_LENGTH = 30;
 
@@ -370,6 +371,7 @@ function loadState() {
       activeTab === SEASON_BETS ||
       activeTab === WEEKLY_RECAP ||
       activeTab === MY_STATS ||
+      activeTab === ABOUT ||
       episodes.some((e) => e.id === activeTab);
     if (!tabOk) {
       activeTab = OVERVIEW;
@@ -459,7 +461,7 @@ function getEpisode(id) {
 }
 
 function normalizeActiveTab() {
-  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === SEASON_BETS || state.activeTab === WEEKLY_RECAP || state.activeTab === MY_STATS) return;
+  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === SEASON_BETS || state.activeTab === WEEKLY_RECAP || state.activeTab === MY_STATS || state.activeTab === ABOUT) return;
   if (!getEpisode(state.activeTab)) {
     state.activeTab = state.episodes[0]?.id ?? OVERVIEW;
     saveState();
@@ -467,7 +469,7 @@ function normalizeActiveTab() {
 }
 
 function activeEpisode() {
-  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === WEEKLY_RECAP || state.activeTab === MY_STATS) return null;
+  if (state.activeTab === OVERVIEW || state.activeTab === CAST || state.activeTab === EVENT_BANK || state.activeTab === WEEKLY_RECAP || state.activeTab === MY_STATS || state.activeTab === ABOUT) return null;
   return getEpisode(state.activeTab);
 }
 
@@ -1013,6 +1015,7 @@ function updateViewVisibility() {
   const viewSeasonBets = document.getElementById("view-season-bets");
   const viewWeeklyRecap = document.getElementById("view-weekly-recap");
   const viewMyStats = document.getElementById("view-my-stats");
+  const viewAbout = document.getElementById("view-about");
   const episodeMain = document.getElementById("episode-workspace");
   const extras = document.getElementById("episode-extras");
   const onOverview = state.activeTab === OVERVIEW;
@@ -1021,13 +1024,15 @@ function updateViewVisibility() {
   const onSeasonBets = state.activeTab === SEASON_BETS;
   const onWeeklyRecap = state.activeTab === WEEKLY_RECAP;
   const onMyStats = state.activeTab === MY_STATS;
-  const onEpisode = !onOverview && !onCast && !onEventBank && !onSeasonBets && !onWeeklyRecap && !onMyStats;
+  const onAbout = state.activeTab === ABOUT;
+  const onEpisode = !onOverview && !onCast && !onEventBank && !onSeasonBets && !onWeeklyRecap && !onMyStats && !onAbout;
   if (viewOverview) viewOverview.hidden = !onOverview;
   if (viewCast) viewCast.hidden = !onCast;
   if (viewEventBank) viewEventBank.hidden = !onEventBank;
   if (viewSeasonBets) viewSeasonBets.hidden = !onSeasonBets;
   if (viewWeeklyRecap) viewWeeklyRecap.hidden = !onWeeklyRecap;
   if (viewMyStats) viewMyStats.hidden = !onMyStats;
+  if (viewAbout) viewAbout.hidden = !onAbout;
   if (episodeMain) {
     episodeMain.hidden = !onEpisode;
     if (onEpisode) {
@@ -1663,6 +1668,7 @@ function renderMainTabs() {
     { id: EVENT_BANK, label: "Bet bank" },
     { id: SEASON_BETS, label: "Season bets" },
     { id: MY_STATS, label: "Player stats" },
+    { id: ABOUT, label: "About" },
   ];
 
   function activateTab(id) {
@@ -1674,8 +1680,9 @@ function renderMainTabs() {
     if (id === EVENT_BANK) renderEventBank();
     if (id === SEASON_BETS) renderSeasonBets();
     if (id === WEEKLY_RECAP) renderWeeklyRecap();
-    if (id === MY_STATS) renderMyStats();
-  }
+      if (id === MY_STATS) renderMyStats();
+      if (id === ABOUT) renderAbout();
+    }
 
   function activateEpisode(epId) {
     state.activeTab = epId;
@@ -2441,6 +2448,23 @@ function renderSeasonBets() {
       badge.className = "season-lock-badge season-lock-badge--locked";
       badge.innerHTML = "&#128274; Season bets are locked";
       lockBar.append(badge);
+
+      const unlockBtn = document.createElement("button");
+      unlockBtn.type = "button";
+      unlockBtn.className = "btn btn--secondary btn--season-unlock";
+      unlockBtn.textContent = "Unlock";
+      unlockBtn.addEventListener("click", () => {
+        const pw = prompt("Enter the admin password to unlock season bets:");
+        if (pw === null) return;
+        if (pw === "thfbattf") {
+          state.seasonBetsLocked = false;
+          saveState();
+          renderSeasonBets();
+        } else {
+          alert("Wrong password.");
+        }
+      });
+      lockBar.append(unlockBtn);
     } else {
       const btn = document.createElement("button");
       btn.type = "button";
@@ -3267,6 +3291,79 @@ function ordinalShort(n) {
   if (n === 2) return "2nd";
   if (n === 3) return "3rd";
   return `${n}th`;
+}
+
+function renderAbout() {
+  const root = document.getElementById("about-content");
+  if (!root || root.hasChildNodes()) return;
+
+  root.innerHTML = `
+<header class="about-hero">
+  <span class="about-hero__rose">\uD83C\uDF39</span>
+  <h1 class="about__h1" id="about-heading">About</h1>
+  <p class="about-hero__tagline">The story behind the bets, the odds, and the feelings column.</p>
+</header>
+
+<article class="about-body">
+
+<section class="about-section">
+  <h2 class="about__h2">the origin</h2>
+  <p class="about__lede">This started last year as a shared iCloud note.</p>
+  <p>It had two columns. One for betting on who\u2019d go home that week. One labeled \u201Cnuttet\u201D where we each wrote down which guy we thought was cute. The cuteness column was worth zero points. It was not a betting column. It was a feelings column.</p>
+  <p>We did this for an entire season. We tallied eliminations. We logged our cuteness opinions like it was a legally binding record. We disagreed violently about who was cute. We disagreed somewhat less about who was going home, mainly because none of us knew.</p>
+  <p>The betting format was originally lifted from a Game of Thrones pool Malle ran with Dulde\u2019s family in high school, which was competitive, eerily accurate, and in retrospect probably a few kroner away from being structured gambling.</p>
+  <p>This website is the third generation of the same basic idea: actual odds, actual events, actual infrastructure. The nuttet column persists, but in a new and updated and better-than-ever format.</p>
+</section>
+
+<section class="about-section">
+  <h2 class="about__h2">how it works</h2>
+  <p>Every Tuesday, Wednesday, and Thursday a new episode airs. Before midnight on air day, each of us picks three events we think will happen from a bank of way too many bets. Each event has odds. Rarer events are worth more. This is gambling for people who are too anxious to actually gamble.</p>
+  <p>Thursdays come with a rose ceremony, which adds one extra bet: who\u2019s going home? Correct eliminations pay out based on how many contestants are still in the running. Early-season guesses are genuinely hard. Late-season guesses are mostly vibes.</p>
+  <p>After the episode we tick off what actually happened. Points get tallied. The leaderboard updates. A recap lands Friday morning, which we then immediately misread and take personally.</p>
+</section>
+
+<section class="about-section about-section--principles">
+  <h2 class="about__h2">design principles</h2>
+  <div class="about-principles">
+    <div class="about-principle">
+      <p><strong>It should be fun before it\u2019s fair.</strong> Perfect odds would make this a math exercise. We have spreadsheets at work. We did not build this to use another spreadsheet. A 20\u00D7 bet on something absurd happening is the entire personality of this site.</p>
+    </div>
+    <div class="about-principle">
+      <p><strong>No accounts, no logins.</strong> Four of us, one shared state, Firebase doing the actual work. If we can\u2019t trust each other not to tamper with the database, the friendship is cooked anyway and no login screen is going to save it.</p>
+    </div>
+    <div class="about-principle">
+      <p><strong>Everything syncs live.</strong> No refreshing. No \u201Cdid you see my bet?\u201D If Yas places a bet from her couch, Thiller\u2019s phone knows about it before Yas has set the phone down.</p>
+    </div>
+    <div class="about-principle">
+      <p><strong>Bachelorette-specific, not generic.</strong> The events know this is Mie and Sofie\u2019s season. They know about Lulu. They reference Sicily. A bet bank that doesn\u2019t mention Stig Rossen at least once is a bet bank that has failed you.</p>
+    </div>
+    <div class="about-principle">
+      <p><strong>Odds aren\u2019t sacred.</strong> We tune them between episodes. If \u201Csomeone cries\u201D keeps happening 100% of the time, that is feedback from the universe and we take it seriously. Dulde has a whole theory about this. We do not have time to hear the whole theory.</p>
+    </div>
+  </div>
+</section>
+
+<section class="about-section about-section--duo">
+  <div class="about-duo">
+    <div class="about-duo__card about-duo__card--do">
+      <h2 class="about__h2">what counts as cheating</h2>
+      <p>Waiting to see what happens in an episode before locking in your bets. That\u2019s why betting closes at midnight on air day. We love each other. We don\u2019t trust each other.</p>
+    </div>
+    <div class="about-duo__card about-duo__card--dont">
+      <h2 class="about__h2">what doesn\u2019t count as cheating</h2>
+      <p>Almost everything else. Betting strategically against a friend: yes. Building a color-coded tracker of which contestant cries on which day: enthusiastically yes. Stalking the contestants on Instagram for scouting intel: we call that research. If it happens before the deadline, it\u2019s fair play and arguably heroic.</p>
+    </div>
+  </div>
+</section>
+
+<section class="about-section about-section--name">
+  <h2 class="about__h2">the name</h2>
+  <p>THFBATTF stands for <em>The Hotass French-speaking Bitches and their Translator Friends</em>. This is from a group project for national language day in high school. Thiller and Yas studied French. Dulde and Malle studied German and were press-ganged into translating. The project is forgotten. The presentation is forgotten. The French is, embarrassingly, also forgotten. The acronym survived all of it and now sits at the top of a betting website. This is, as far as we can tell, the peak of its journey.</p>
+</section>
+
+</article>
+
+`;
 }
 
 function renderLeaderboard() {
@@ -4240,6 +4337,7 @@ function renderAll() {
   safe(renderEventBank, "renderEventBank");
   safe(renderWeeklyRecap, "renderWeeklyRecap");
   safe(renderMyStats, "renderMyStats");
+  safe(renderAbout, "renderAbout");
   safe(renderUpcomingDeadlineStrip, "renderUpcomingDeadlineStrip");
   safe(checkNewRecapBanner, "checkNewRecapBanner");
 }

@@ -3204,6 +3204,15 @@ body {
   color: var(--ink-soft);
 }
 
+.footer__credit {
+  flex-basis: 100%;
+  text-align: center;
+  font-size: 0.7rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  opacity: 0.6;
+}
+
 /* ── Season bets ── */
 
 .season-bets-section {
@@ -3214,6 +3223,22 @@ body {
 .season-bets-lock-bar {
   margin-bottom: 1.5rem;
   text-align: center;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn--season-unlock {
+  font-size: 0.72rem;
+  padding: 0.3rem 0.8rem;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.btn--season-unlock:hover {
+  opacity: 1;
 }
 
 .btn--season-lock {
@@ -3671,4 +3696,243 @@ body {
   .recap-ep-row__elim { padding-left: 0; }
   .recap-sb-row { grid-template-columns: 2rem 1fr auto; }
   .recap-card__header { flex-direction: column; align-items: flex-start; }
+}
+
+/* ── About page ── */
+
+.about-page {
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.about-content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 0 4rem;
+}
+
+/* hero */
+.about-hero {
+  text-align: center;
+  padding: 2.5rem 1rem 2rem;
+  margin-bottom: 2.5rem;
+  position: relative;
+}
+
+.about-hero__rose {
+  display: block;
+  font-size: 2.2rem;
+  margin-bottom: 0.6rem;
+  filter: drop-shadow(0 2px 6px rgba(194, 30, 46, 0.2));
+}
+
+.about__h1 {
+  font-family: "Playfair Display", serif;
+  font-weight: 700;
+  font-size: 2.8rem;
+  margin: 0 0 0.5rem;
+  background: var(--gold-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  letter-spacing: -0.02em;
+}
+
+.about-hero__tagline {
+  font-size: 1rem;
+  color: var(--ink-soft);
+  font-style: italic;
+  margin: 0;
+  letter-spacing: 0.01em;
+}
+
+/* body + sections */
+.about-body {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.about-section {
+  margin-bottom: 3rem;
+  position: relative;
+}
+
+.about-section::after {
+  content: "\2022 \2022 \2022";
+  display: block;
+  text-align: center;
+  color: var(--line-warm);
+  font-size: 1rem;
+  letter-spacing: 0.6em;
+  margin-top: 3rem;
+}
+
+.about-section:last-child::after {
+  display: none;
+}
+
+.about__h2 {
+  font-family: "Playfair Display", serif;
+  font-weight: 600;
+  font-size: 1.4rem;
+  color: var(--ink);
+  margin: 0 0 1rem;
+  letter-spacing: -0.01em;
+}
+
+.about-content p {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--ink);
+  margin: 0 0 1.1rem;
+}
+
+.about-content p:last-child {
+  margin-bottom: 0;
+}
+
+/* opening lede — slightly larger, gold left border */
+.about__lede {
+  font-family: "Playfair Display", serif;
+  font-size: 1.3rem;
+  font-weight: 500;
+  line-height: 1.55;
+  color: var(--ink);
+  padding-left: 1.2rem;
+  border-left: 3px solid var(--gold-mid);
+  margin-bottom: 1.4rem;
+}
+
+.about-content strong {
+  font-weight: 700;
+  color: var(--gold-deep);
+}
+
+.about-content em {
+  font-style: italic;
+}
+
+/* principles cards */
+.about-principles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.about-principle {
+  background: var(--cream-card);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold-mid);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  padding: 1rem 1.25rem;
+}
+
+.about-principle p {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.65;
+}
+
+/* cheating duo cards */
+.about-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.about-duo__card {
+  padding: 1.4rem 1.3rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+}
+
+.about-duo__card .about__h2 {
+  font-size: 1.1rem;
+  margin-bottom: 0.75rem;
+}
+
+.about-duo__card p {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.about-duo__card--do {
+  background: linear-gradient(170deg, #fef6f6, var(--cream-card));
+  border-color: rgba(194, 30, 46, 0.15);
+}
+
+.about-duo__card--do .about__h2 {
+  color: var(--rose-red);
+}
+
+.about-duo__card--dont {
+  background: linear-gradient(170deg, #f6faf5, var(--cream-card));
+  border-color: rgba(90, 154, 104, 0.2);
+}
+
+.about-duo__card--dont .about__h2 {
+  color: #4a7c52;
+}
+
+/* the name — centered closer */
+.about-section--name {
+  text-align: center;
+}
+
+.about-section--name .about__h2 {
+  margin-bottom: 0.75rem;
+}
+
+.about-section--name p {
+  text-align: left;
+}
+
+/* mobile */
+@media (max-width: 600px) {
+  .about-content {
+    padding: 0 0.25rem 3rem;
+  }
+  .about-hero {
+    padding: 1.5rem 0.5rem 1.25rem;
+    margin-bottom: 1.75rem;
+  }
+  .about-hero__rose {
+    font-size: 1.6rem;
+  }
+  .about__h1 {
+    font-size: 2rem;
+  }
+  .about-hero__tagline {
+    font-size: 0.88rem;
+  }
+  .about__h2 {
+    font-size: 1.15rem;
+  }
+  .about-content p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .about__lede {
+    font-size: 1.1rem;
+    padding-left: 0.9rem;
+  }
+  .about-section {
+    margin-bottom: 2rem;
+  }
+  .about-section::after {
+    margin-top: 2rem;
+  }
+  .about-principle {
+    padding: 0.8rem 1rem;
+  }
+  .about-principle p {
+    font-size: 0.9rem;
+  }
+  .about-duo {
+    grid-template-columns: 1fr;
+  }
+  .about-duo__card {
+    padding: 1.1rem 1rem;
+  }
 }
