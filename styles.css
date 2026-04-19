@@ -177,6 +177,7 @@ body {
 #episode-workspace .panel--scoring {
   border-left: 2px solid var(--gold-mid);
   background: #e3ddd3;
+  margin-top: 1.5rem;
 }
 
 /* Non-overview sections that need card backgrounds */
@@ -4890,10 +4891,7 @@ body {
   .episode-extras .btn--delete,
   .episode-extras .btn--add-episode {
     flex: 0 1 auto;
-  }
-
-  .episode-extras .btn--add-episode {
-    margin-left: auto;
+    margin-left: 0;
   }
 
   .episode-airdate-bar {

@@ -4351,12 +4351,11 @@ function wireActions() {
   });
 
   function handleReset() {
-    if (
-      !confirm(
-        "Clear all saved episodes, bets, and scores? This cannot be undone."
-      )
-    )
-      return;
+    const typed = prompt('This will erase ALL episodes, bets, and scores.\n\nA backup will be saved automatically.\n\nType DELETE to confirm:');
+    if (typed !== "DELETE") return;
+    const backup = sharedState();
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    fbDb.ref("backups/" + ts).set(backup).catch((e) => console.error("Backup failed:", e));
     localStorage.removeItem(STORAGE_KEY);
     state = defaultState();
     saveState();
@@ -4366,8 +4365,34 @@ function wireActions() {
     if (activeEpisode()) renderEpisodeContent();
     renderLeaderboard();
     renderEventBank();
+    showToast("Data reset. Backup saved as " + ts);
   }
   document.getElementById("reset-data")?.addEventListener("click", handleReset);
+
+  document.getElementById("restore-backup")?.addEventListener("click", async () => {
+    try {
+      const snap = await fbDb.ref("backups").orderByKey().limitToLast(10).once("value");
+      const backups = snap.val();
+      if (!backups) { alert("No backups found."); return; }
+      const keys = Object.keys(backups).sort().reverse();
+      const list = keys.map((k, i) => `${i + 1}. ${k}`).join("\n");
+      const choice = prompt("Available backups:\n\n" + list + "\n\nEnter the number to restore:");
+      const idx = parseInt(choice, 10) - 1;
+      if (isNaN(idx) || idx < 0 || idx >= keys.length) return;
+      if (!confirm("Restore backup from " + keys[idx] + "? This will overwrite current data.")) return;
+      const restored = backups[keys[idx]];
+      suppressFirebaseWrite = true;
+      state = { ...defaultState(), ...restored, activeTab: state.activeTab };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      suppressFirebaseWrite = false;
+      saveState();
+      renderAll();
+      showToast("Restored backup from " + keys[idx]);
+    } catch (e) {
+      console.error("Restore failed:", e);
+      alert("Failed to load backups. Check console for details.");
+    }
+  });
 
   document.getElementById("lock-bets")?.addEventListener("click", () => {
     const ep = activeEpisode();
