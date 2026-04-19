@@ -4497,53 +4497,55 @@ function markRecapSeen(weekId) {
 }
 
 function generateRecapMarkdown(recap) {
-  let md = `UGE ${recap.weekNum} — ${recap.dateRange}\n`;
-  md += "─".repeat(30) + "\n\n";
+  let md = `UGE ${recap.weekNum} \u2014 ${recap.dateRange}\n`;
+  md += "___________________\n\n";
 
-  md += "UGENS STILLING\n";
+  md += "\uD83C\uDFAF UGENS STILLING:\n";
   const thursdayEp = getThursdayEpisodeForWeek(recap.weekId || "");
   const nuttetPicks = thursdayEp ? getNuttetForWeek(thursdayEp.id) : {};
   recap.scoreboard.forEach((s, idx) => {
     const rank = String(idx + 1).padStart(2, "0");
     const name = PLAYER_NAMES[s.playerIndex];
-    const pts = `${formatDanishNumber(s.weekPoints)} point`;
+    const pts = `${formatDanishNumber(s.weekPoints)} pts`;
     const nuttet = nuttetPicks[s.playerIndex] ? ` | Nuttet: ${nuttetPicks[s.playerIndex]}` : "";
-    md += `  ${rank}  ${name} — ${pts}${nuttet}\n`;
+    md += `${rank}  ${name} \u2014 ${pts}${nuttet}\n`;
   });
   md += "\n";
 
   if (recap.highlights.biggestPayout || recap.highlights.biggestWhiff) {
-    md += "HIGHLIGHTS\n";
+    md += "\uD83E\uDD21 HIGHLIGHTS:\n";
     if (recap.highlights.biggestPayout) {
       const h = recap.highlights.biggestPayout;
-      md += `  Ugens gevinst: ${h.player} ramte '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+      md += `- Ugens gevinst: ${h.player} ramte '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
     }
     if (recap.highlights.biggestWhiff) {
       const h = recap.highlights.biggestWhiff;
-      md += `  Ugens fiasko: ${h.player} satsede p\u00E5 '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+      md += `- Ugens fiasko: ${h.player} satsede p\u00E5 '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
     }
     md += "\n";
   }
 
   if (recap.eliminations.length) {
-    const names = recap.eliminations.map((e) => e.contestantName).join(" og ");
-    const callers = recap.eliminations.flatMap((e) => e.calledBy.map((i) => PLAYER_NAMES[i]));
-    const unique = [...new Set(callers)];
-    if (unique.length) {
-      md += `ELIMINERING: ${names} r\u00F8g ud. ${unique.join(" og ")} ramte plet.\n`;
-    } else {
-      md += `ELIMINERING: ${names} r\u00F8g ud. Ingen s\u00E5 det komme.\n`;
+    md += "\u274C ELIMINERING:\n";
+    for (const e of recap.eliminations) {
+      const callerNames = e.calledBy.map((i) => PLAYER_NAMES[i]);
+      if (callerNames.length) {
+        md += `- ${e.contestantName} r\u00F8g ud. ${callerNames.join(" og ")} ramte plet.\n`;
+      } else {
+        md += `- ${e.contestantName} r\u00F8g ud. Ingen s\u00E5 det komme.\n`;
+      }
     }
     md += "\n";
   }
 
-  md += "S\u00C6SONEN INDTIL NU\n";
+  md += "\uD83C\uDFC6 S\u00C6SONEN INDTIL NU\n";
   recap.seasonStandings.forEach((s) => {
     const name = PLAYER_NAMES[s.playerIndex];
-    const rc = s.rankChange || "\u2192";
-    md += `  ${name} — ${formatDanishNumber(s.totalPoints)} point ${rc}\n`;
+    md += `- ${name} \u2014 ${formatDanishNumber(s.totalPoints)} pts\n`;
   });
-  md += `\nBejlere tilbage: ${recap.nextWeek.contestantsRemaining}`;
+
+  md += `\n\uD83D\uDC98 BEJLERE TILBAGE\n`;
+  md += `- ${recap.nextWeek.contestantsRemaining}!`;
   return md.trim();
 }
 
