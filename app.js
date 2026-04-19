@@ -2881,7 +2881,6 @@ function renderAllPlayersOverview(root) {
     { label: "Total points", fn: (s) => s.overview.totalPoints.toFixed(1), cmp: "high" },
     { label: "Rank", fn: (s) => ordinalShort(s.overview.rank), raw: (s) => s.overview.rank, cmp: "low" },
     { label: "Hit rate", fn: (s) => s.overview.hitRate != null ? `${s.overview.hitRate}%` : "\u2014", raw: (s) => s.overview.hitRate ?? -1, cmp: "high" },
-    { label: "Bets placed", fn: (s) => String(s.totalBets), cmp: "high" },
     { label: "Current streak", fn: (s) => s.overview.currentStreak > 0 ? String(s.overview.currentStreak) : "0", raw: (s) => s.overview.currentStreak, cmp: "high" },
     { label: "Biggest win", fn: (s) => s.overview.biggestWin.odds > 0 ? `${s.overview.biggestWin.odds}\u00D7` : "\u2014", raw: (s) => s.overview.biggestWin.odds, cmp: "high" },
     { label: "Best night", fn: (s) => s.overview.bestNight.pts > 0 ? `${s.overview.bestNight.pts.toFixed(1)}` : "\u2014", raw: (s) => s.overview.bestNight.pts, cmp: "high" },
@@ -3244,7 +3243,6 @@ function renderStatsEliminations(root, stats) {
   const grid = document.createElement("div");
   grid.className = "ms-metric-grid ms-metric-grid--small";
   const items = [
-    { label: "Picks placed", value: e.totalBets },
     { label: "Correct", value: e.correctBets },
     { label: "Hit rate", value: e.hitRate != null ? `${e.hitRate}%` : "—" },
     { label: "Points earned", value: e.pointsEarned.toFixed(1) },
@@ -3809,6 +3807,150 @@ function renderNuttetSection(ep) {
   root.append(grid);
 }
 
+function renderPlayerSections() {
+  const root = document.getElementById("player-sections");
+  if (!root) return;
+  root.innerHTML = "";
+  const ep = activeEpisode();
+  if (!ep) return;
+  ensureEpisodeMaps(ep.id);
+
+  const frozen = isEpisodeBetsLocked(ep);
+  const closed = isEpisodeClosed(ep);
+  const hasElim = isEliminationEpisode(ep);
+
+  const isThursday = (() => {
+    if (!ep.airDate) return false;
+    const [y, m, d] = ep.airDate.split("-").map(Number);
+    return new Date(y, m - 1, d).getDay() === 4;
+  })();
+
+  const eligible = isThursday ? getEligibleContestantsForNuttet(ep.id) : [];
+  const nuttetPicks = isThursday ? getNuttetForWeek(ep.id) : {};
+  const elimOdds = hasElim ? eliminationOdds(ep) : 0;
+
+  for (let p = 0; p < PLAYER_COUNT; p++) {
+    const card = document.createElement("div");
+    card.className = "player-section-card";
+
+    const header = document.createElement("h3");
+    header.className = "player-section-card__name";
+    header.textContent = PLAYER_NAMES[p];
+    card.append(header);
+
+    // --- Event bets (3 picks) ---
+    const betsLabel = document.createElement("span");
+    betsLabel.className = "player-section-card__label";
+    betsLabel.textContent = "Event bets";
+    card.append(betsLabel);
+
+    const picks = [...(state.bets[ep.id][p] || [])];
+    while (picks.length < MAX_BETS) picks.push("");
+
+    for (let slot = 0; slot < MAX_BETS; slot++) {
+      const select = document.createElement("select");
+      select.className = "player-section-card__select";
+      if (frozen) select.disabled = true;
+      const others = picks.filter((_, i) => i !== slot);
+      select.innerHTML = eventOptionsHtml(ep, picks[slot] || "", others);
+      select.value = picks[slot] || "";
+      select.addEventListener("change", () => {
+        ensureEpisodeMaps(ep.id);
+        const next = [...(state.bets[ep.id][p] || [])];
+        while (next.length < MAX_BETS) next.push("");
+        next[slot] = select.value;
+        const used = new Set();
+        const cleaned = [];
+        for (const v of next) {
+          if (!v || used.has(v)) continue;
+          used.add(v);
+          cleaned.push(v);
+        }
+        while (cleaned.length < MAX_BETS) cleaned.push("");
+        state.bets[ep.id][p] = cleaned.slice(0, MAX_BETS);
+        saveState();
+        renderBets();
+        renderResults();
+        renderEpisodeScoreSummary();
+        renderLeaderboard();
+        renderPlayerSections();
+      });
+      card.append(select);
+    }
+
+    // --- Elimination bet ---
+    if (hasElim && ep.guys?.length) {
+      const elimLabel = document.createElement("span");
+      elimLabel.className = "player-section-card__label";
+      elimLabel.textContent = `Who goes home? (${elimOdds.toFixed(1)}×)`;
+      card.append(elimLabel);
+
+      const elimSelect = document.createElement("select");
+      elimSelect.className = "player-section-card__select";
+      if (frozen) elimSelect.disabled = true;
+      const currentElim = state.eliminationBets[ep.id]?.[p] || "";
+      let elimHtml = '<option value="">\u2014 Pick who leaves \u2014</option>';
+      for (const g of ep.guys) {
+        const sel = g.name === currentElim ? " selected" : "";
+        elimHtml += `<option value="${escapeHtml(g.name)}"${sel}>${escapeHtml(g.name)}</option>`;
+      }
+      elimSelect.innerHTML = elimHtml;
+      elimSelect.value = currentElim;
+      elimSelect.addEventListener("change", () => {
+        ensureEpisodeMaps(ep.id);
+        state.eliminationBets[ep.id][p] = elimSelect.value;
+        saveState();
+        renderEliminationBets();
+        renderEpisodeScoreSummary();
+        renderLeaderboard();
+        renderPlayerSections();
+      });
+      card.append(elimSelect);
+    }
+
+    // --- Nuttet pick ---
+    if (isThursday) {
+      const nuttetLabel = document.createElement("span");
+      nuttetLabel.className = "player-section-card__label";
+      nuttetLabel.textContent = "Nuttet this week";
+      card.append(nuttetLabel);
+
+      const nuttetSelect = document.createElement("select");
+      nuttetSelect.className = "player-section-card__select";
+      if (closed) nuttetSelect.disabled = true;
+
+      const emptyOpt = document.createElement("option");
+      emptyOpt.value = "";
+      emptyOpt.textContent = "\u2014 v\u00E6lg en \u2014";
+      nuttetSelect.append(emptyOpt);
+
+      const currentPick = nuttetPicks[p] || "";
+      const eligibleNames = new Set(eligible.map((g) => g.name));
+      if (currentPick && !eligibleNames.has(currentPick)) eligibleNames.add(currentPick);
+
+      const sorted = [...eligibleNames].sort((a, b) => a.localeCompare(b, "da"));
+      for (const name of sorted) {
+        const opt = document.createElement("option");
+        opt.value = name;
+        opt.textContent = name;
+        if (name === currentPick) opt.selected = true;
+        nuttetSelect.append(opt);
+      }
+
+      nuttetSelect.addEventListener("change", () => {
+        if (!state.nuttet[ep.id]) state.nuttet[ep.id] = {};
+        state.nuttet[ep.id][p] = nuttetSelect.value || null;
+        saveState();
+        renderNuttetSection(ep);
+        renderPlayerSections();
+      });
+      card.append(nuttetSelect);
+    }
+
+    root.append(card);
+  }
+}
+
 function renderNuttetOverview() {
   const root = document.getElementById("overview-nuttet");
   if (!root) return;
@@ -3910,6 +4052,22 @@ function renderEpisodeContent() {
       tagline.textContent = parts.join(" \u00B7 ");
 
       heroEl.append(h2, tagline);
+
+      if (ep.betsLockDeadline && !ep.betsLocked && !closed) {
+        const strip = document.createElement("p");
+        strip.className = "episode-deadline-strip";
+        const now = Date.now();
+        const dl = ep.betsLockDeadline;
+        const diff = dl - now;
+        if (diff <= 0) {
+          strip.textContent = "Bets lock now\u2026";
+          strip.classList.add("episode-deadline-strip--warn");
+        } else {
+          strip.textContent = "Bets close " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
+          if (diff < 6 * 3600000) strip.classList.add("episode-deadline-strip--warn");
+        }
+        heroEl.append(strip);
+      }
     }
   }
 
@@ -3980,22 +4138,6 @@ function renderEpisodeContent() {
       });
       elimLabel.append(cb, document.createTextNode(" Roseceremoni"));
       airDateBar.append(label, input, elimLabel);
-
-      if (ep.betsLockDeadline && !betsLocked) {
-        const dlSpan = document.createElement("span");
-        dlSpan.className = "episode-airdate-bar__deadline";
-        const now = Date.now();
-        const dl = ep.betsLockDeadline;
-        const diff = dl - now;
-        if (diff <= 0) {
-          dlSpan.textContent = "Auto-l\u00E5ser nu\u2026";
-          dlSpan.classList.add("episode-airdate-bar__deadline--warn");
-        } else {
-          dlSpan.textContent = "Bets l\u00E5ses " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
-          if (diff < 6 * 3600000) dlSpan.classList.add("episode-airdate-bar__deadline--warn");
-        }
-        airDateBar.append(dlSpan);
-      }
     }
   } else if (airDateBar) {
     airDateBar.hidden = true;
@@ -4016,6 +4158,7 @@ function renderEpisodeContent() {
   safe(renderEliminations, "renderEliminations");
   safe(renderEpisodeScoreSummary, "renderEpisodeScoreSummary");
   if (ep) safe(() => renderNuttetSection(ep), "renderNuttetSection");
+  safe(renderPlayerSections, "renderPlayerSections");
 }
 
 function renderDeadlineDisplay(el, ep) {
