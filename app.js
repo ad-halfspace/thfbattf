@@ -3906,9 +3906,13 @@ function renderNuttetSection(ep) {
       if (!state.nuttet[ep.id]) state.nuttet[ep.id] = {};
       state.nuttet[ep.id][p] = select.value || null;
       saveState();
+      renderNuttetSection(ep);
     });
 
     row.append(nameEl, select);
+    if (currentPick) {
+      row.classList.add("nuttet-row--done");
+    }
     grid.append(row);
   }
 
@@ -3985,6 +3989,11 @@ function renderPlayerSections() {
       card.append(select);
     }
 
+    const allFilled = picks.every(v => v !== "");
+    if (allFilled) {
+      card.classList.add("player-section-card--done");
+    }
+
     grid.append(card);
   }
   root.append(grid);
@@ -4047,9 +4056,13 @@ function renderElimSection() {
       renderEliminationBets();
       renderEpisodeScoreSummary();
       renderLeaderboard();
+      renderElimSection();
     });
 
     row.append(nameEl, select);
+    if (currentElim) {
+      row.classList.add("nuttet-row--done");
+    }
     grid.append(row);
   }
   root.append(grid);
