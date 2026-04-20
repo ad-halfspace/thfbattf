@@ -4239,9 +4239,9 @@ function renderEpisodeContent() {
   safe(renderResults, "renderResults");
   safe(renderEliminations, "renderEliminations");
   safe(renderEpisodeScoreSummary, "renderEpisodeScoreSummary");
-  if (ep) safe(() => renderNuttetSection(ep), "renderNuttetSection");
   safe(renderPlayerSections, "renderPlayerSections");
   safe(renderElimSection, "renderElimSection");
+  if (ep) safe(() => renderNuttetSection(ep), "renderNuttetSection");
 }
 
 function renderDeadlineDisplay(el, ep) {
