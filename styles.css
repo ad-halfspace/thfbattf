@@ -4726,7 +4726,7 @@ body {
 
 .nuttet-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
 }
 
@@ -4886,21 +4886,26 @@ body {
   }
 }
 
-/* ── Per-player mobile sections ── */
-.player-sections {
-  display: none;
+/* ── Per-player sections ── */
+.desktop-bet-section {
+  display: none !important;
+}
+
+#player-sections {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 2rem 2.25rem;
+  margin-bottom: 1.5rem;
+  grid-column: 1 / -1;
+}
+
+#player-sections .player-sections__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
 }
 
 @media (max-width: 720px) {
-  .desktop-bet-section {
-    display: none !important;
-  }
-
-  .player-sections {
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
 
   .episode-extras {
     gap: 0.45rem;

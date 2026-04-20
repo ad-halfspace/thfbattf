@@ -3898,9 +3898,18 @@ function renderPlayerSections() {
   const closed = isEpisodeClosed(ep);
   const hasElim = isEliminationEpisode(ep);
 
-  const eligible = getEligibleContestantsForNuttet(ep.id);
-  const nuttetPicks = getNuttetForWeek(ep.id);
   const elimOdds = hasElim ? eliminationOdds(ep) : 0;
+
+  const title = document.createElement("h2");
+  title.className = "panel__title";
+  title.textContent = "Place your bets";
+  const hint = document.createElement("p");
+  hint.className = "panel__hint";
+  hint.textContent = "Each player picks 3 events and one elimination guess.";
+  root.append(title, hint);
+
+  const grid = document.createElement("div");
+  grid.className = "player-sections__grid";
 
   for (let p = 0; p < PLAYER_COUNT; p++) {
     const card = document.createElement("div");
@@ -3981,47 +3990,9 @@ function renderPlayerSections() {
       card.append(elimSelect);
     }
 
-    // --- Nuttet pick ---
-    {
-      const nuttetLabel = document.createElement("span");
-      nuttetLabel.className = "player-section-card__label";
-      nuttetLabel.textContent = "Nuttet this week";
-      card.append(nuttetLabel);
-
-      const nuttetSelect = document.createElement("select");
-      nuttetSelect.className = "player-section-card__select";
-      if (closed) nuttetSelect.disabled = true;
-
-      const emptyOpt = document.createElement("option");
-      emptyOpt.value = "";
-      emptyOpt.textContent = "\u2014 pick one \u2014";
-      nuttetSelect.append(emptyOpt);
-
-      const currentPick = nuttetPicks[p] || "";
-      const eligibleNames = new Set(eligible.map((g) => g.name));
-      if (currentPick && !eligibleNames.has(currentPick)) eligibleNames.add(currentPick);
-
-      const sorted = [...eligibleNames].sort((a, b) => a.localeCompare(b, "da"));
-      for (const name of sorted) {
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name;
-        if (name === currentPick) opt.selected = true;
-        nuttetSelect.append(opt);
-      }
-
-      nuttetSelect.addEventListener("change", () => {
-        if (!state.nuttet[ep.id]) state.nuttet[ep.id] = {};
-        state.nuttet[ep.id][p] = nuttetSelect.value || null;
-        saveState();
-        renderNuttetSection(ep);
-        renderPlayerSections();
-      });
-      card.append(nuttetSelect);
-    }
-
-    root.append(card);
+    grid.append(card);
   }
+  root.append(grid);
 }
 
 function renderNuttetOverview() {
