@@ -4891,12 +4891,24 @@ body {
   display: none !important;
 }
 
-#player-sections {
+#player-sections,
+#elim-section {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 2rem 2.25rem;
   margin-bottom: 1.5rem;
   grid-column: 1 / -1;
+}
+
+#elim-section .elim-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+#elim-section .elim-grid > .nuttet-row {
+  flex: 1 1 calc((100% - 5 * 0.75rem) / 6);
+  min-width: 120px;
 }
 
 #player-sections .player-sections__grid {
