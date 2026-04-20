@@ -1396,28 +1396,35 @@ body {
   flex-shrink: 0;
 }
 
+.tab-spacer {
+  flex: 1;
+}
+
 .tab-episode-select {
   font-family: inherit;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.76rem;
-  letter-spacing: 0.02em;
-  padding: 0.45rem 2rem 0.45rem 0.95rem;
-  border: 1.5px solid var(--line);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.5rem 2.2rem 0.5rem 1rem;
+  border: 1.5px solid var(--gold-mid);
   border-radius: 999px;
-  background-color: transparent;
-  color: var(--ink-soft);
+  background-color: #f8f0d8;
+  color: var(--ink);
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23999'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%231a1a1a'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.7rem center;
+  background-position: right 0.75rem center;
   background-size: 10px 6px;
   transition: all var(--duration) var(--ease);
 }
 
 .tab-episode-select:hover {
-  border-color: var(--ink-soft);
-  color: var(--ink);
+  background-color: var(--gold-mid);
+  color: #fff;
+  border-color: var(--gold-mid);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23fff'/%3E%3C/svg%3E");
 }
 
 .tab-episode-select--active {

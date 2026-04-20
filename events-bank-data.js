@@ -42,7 +42,7 @@ window.MASTER_BET_EVENTS = [
   { text: "Der bliver kysset", odds: 2, category: "romance", phase: "late-heavy" },
   { text: "Solnedgangs-shot brugt som overgang", odds: 2.2, category: "romance" },
   { text: "B\u00F8rn / hvor mange / familieplaner diskuteres", odds: 2.4, category: "romance", phase: "late-heavy" },
-  { text: "Mere end \u00E9n kysse-scene i episoden", odds: 2.6, category: "romance", phase: "late-heavy" },
+  { text: "Mere end \u00E9n kysse-scene i ugen", odds: 2.6, category: "romance", phase: "late-heavy" },
   { text: "Boblebad, pool eller \u201Cbar overkrop\u201D-klip", odds: 2.7, category: "romance" },
   { text: "F\u00F8rste kys i s\u00E6sonen (tydeligt fremh\u00E6vet)", odds: 3.2, category: "romance", phase: "early-heavy" },
   { text: "En bejler siger \u201Cjeg elsker dig\u201D eller \u201Cjeg er ved at blive forelsket\u201D", odds: 7, category: "romance", phase: "late-heavy" },

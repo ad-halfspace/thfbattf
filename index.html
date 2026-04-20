@@ -27,7 +27,7 @@
       </header>
 
 
-      <nav class="episode-nav" aria-label="Leaderboard, cast, bet bank og episoder">
+      <nav class="episode-nav" aria-label="Leaderboard, cast, bet bank and weeks">
         <div id="main-tabs" class="episode-tabs"></div>
       </nav>
 
@@ -111,18 +111,18 @@
       >
         <header class="page-hero">
           <h2 id="event-bank-heading" class="page-hero__title">Bet bank</h2>
-          <p class="page-hero__tagline">Ready-made events grouped by category. Pick an episode, tweak the odds if you like, then hit Add.</p>
+          <p class="page-hero__tagline">Ready-made events grouped by category. Pick a week, tweak the odds if you like, then hit Add.</p>
           <details class="bet-bank-phase-explainer">
           <summary class="bet-bank-phase-explainer__toggle">How do phase-adjusted odds work?</summary>
           <div class="bet-bank-phase-explainer__body">
             <p>
               Each bet can have a <strong>phase tag</strong> that shifts its odds depending on
-              where the episode falls in the season (early&nbsp;&#8592; mid&nbsp;&#8594; late).
-              The season is split into three thirds based on an estimated ~28-episode horizon (adapts if more episodes are added).
+              where the week falls in the season (early&nbsp;&#8592; mid&nbsp;&#8594; late).
+              The season is split into three thirds based on an estimated ~14-week horizon (adapts if more weeks are added).
             </p>
             <table class="bet-bank-phase-table">
               <thead>
-                <tr><th>Phase tag</th><th>Early ep.</th><th>Mid ep.</th><th>Late ep.</th><th>Idea</th></tr>
+                <tr><th>Phase tag</th><th>Early wk.</th><th>Mid wk.</th><th>Late wk.</th><th>Idea</th></tr>
               </thead>
               <tbody>
                 <tr><td><code>early-heavy</code></td><td>&times;0.7</td><td>&times;1.2</td><td>&times;1.8</td><td>Likely early on, pays more later</td></tr>
@@ -133,17 +133,17 @@
             </table>
             <p>
               <strong>Example:</strong> A bet with base odds <em>3.0&times;</em> tagged <code>early-heavy</code>
-              added to Episode&nbsp;2 (early) becomes <em>3.0 &times; 0.7 = 2.1&times;</em>.
-              The same bet in Episode&nbsp;20 (late) becomes <em>3.0 &times; 1.8 = 5.4&times;</em>.
+              added to Week&nbsp;2 (early) becomes <em>3.0 &times; 0.7 = 2.1&times;</em>.
+              The same bet in Week&nbsp;10 (late) becomes <em>3.0 &times; 1.8 = 5.4&times;</em>.
               You can override the phase on any bet or set it to <code>any</code> to disable the adjustment.
             </p>
           </div>
         </details>
         </header>
         <div class="event-bank-toolbar">
-          <label class="event-bank-toolbar__label" for="bank-target-episode">Add into episode</label>
+          <label class="event-bank-toolbar__label" for="bank-target-episode">Add into week</label>
           <select id="bank-target-episode" class="input event-bank-select" aria-describedby="bank-target-hint">
-            <option value="">— Select episode —</option>
+            <option value="">— Select week —</option>
           </select>
           <span id="bank-target-hint" class="panel__hint event-bank-toolbar__hint">Required before using Add<br/>on each row.</span>
         </div>
@@ -205,8 +205,8 @@
         hidden
       >
         <header class="page-hero">
-          <h2 id="weekly-recap-heading" class="page-hero__title">Weekly recap</h2>
-          <p class="page-hero__tagline">Weekly summary of points, highlights, and eliminations.</p>
+          <h2 id="weekly-recap-heading" class="page-hero__title">Week summaries</h2>
+          <p class="page-hero__tagline">Summary of points, highlights, and eliminations for each closed week.</p>
         </header>
         <div id="weekly-recap-progress" class="weekly-recap-progress"></div>
         <div id="weekly-recap-cards" class="weekly-recap-cards"></div>
@@ -251,29 +251,29 @@
 
       <main id="episode-workspace" class="main-grid" hidden>
         <div id="episode-lock-banner" class="episode-lock-banner" hidden>
-          <span class="episode-lock-banner__text">This episode is closed. Scores are final. <strong>Reopen</strong> below if you need to make changes.</span>
+          <span class="episode-lock-banner__text">This week is closed. Scores are final. <strong>Reopen</strong> below if you need to make changes.</span>
         </div>
         <header id="episode-hero" class="page-hero page-hero--episode"></header>
         <div id="episode-extras" class="episode-extras">
           <div id="add-episode-modal" class="modal-overlay" hidden>
             <div class="modal-overlay__box">
-              <h3 class="modal-overlay__title">New episode</h3>
+              <h3 class="modal-overlay__title">New week</h3>
               <label class="modal-overlay__field">
-                <span class="modal-overlay__label">Air date</span>
+                <span class="modal-overlay__label">Week start (Tuesday)</span>
                 <input type="date" id="new-ep-airdate" class="input" />
               </label>
               <div class="modal-overlay__actions">
-                <button type="button" id="add-episode" class="btn btn--secondary">Create episode</button>
+                <button type="button" id="add-episode" class="btn btn--secondary">Create week</button>
                 <button type="button" id="add-episode-cancel" class="btn btn--ghost">Cancel</button>
               </div>
             </div>
           </div>
           <button type="button" id="lock-bets" class="btn btn--lock-bets" hidden>Lock bets now</button>
           <button type="button" id="unlock-bets" class="btn btn--unlock-bets" hidden>Unlock bets</button>
-          <button type="button" id="close-episode" class="btn btn--lock" hidden>Close episode</button>
-          <button type="button" id="reopen-episode" class="btn btn--unlock" hidden>Reopen episode</button>
-          <button type="button" id="delete-episode" class="btn btn--delete">Delete episode</button>
-          <button type="button" id="add-episode-toggle" class="btn btn--add-episode">+ Add episode</button>
+          <button type="button" id="close-episode" class="btn btn--lock" hidden>Close week</button>
+          <button type="button" id="reopen-episode" class="btn btn--unlock" hidden>Reopen week</button>
+          <button type="button" id="delete-episode" class="btn btn--delete">Delete week</button>
+          <button type="button" id="add-episode-toggle" class="btn btn--add-episode">+ Add week</button>
         </div>
         <div id="bets-lock-banner" class="bets-lock-banner" hidden>
           <span id="bets-lock-banner-text" class="bets-lock-banner__text">Bets are locked.</span>
@@ -282,12 +282,12 @@
         <div id="deadline-display" class="deadline-display" hidden></div>
         <div id="episode-airdate-bar" class="episode-airdate-bar" hidden></div>
         <section class="panel" aria-labelledby="guys-heading">
-          <h2 id="guys-heading" class="panel__title">Contestants this episode</h2>
+          <h2 id="guys-heading" class="panel__title">Contestants this week</h2>
           <div id="guys-grid" class="guys-grid"></div>
           <button type="button" id="add-guy-toggle" class="btn btn--add-episode">+ Add contestant</button>
           <div id="add-guy-modal" class="modal-overlay" hidden>
             <div class="modal-overlay__box">
-              <h3 class="modal-overlay__title">Add contestant to episode</h3>
+              <h3 class="modal-overlay__title">Add contestant to week</h3>
               <input type="text" id="new-guy-name" class="input" placeholder="Name" maxlength="48" />
               <input type="url" id="new-guy-photo" class="input" placeholder="Photo URL (optional)" autocomplete="off" />
               <div class="modal-overlay__actions">
@@ -331,12 +331,12 @@
 
         <section class="panel panel--wide desktop-bet-section" aria-labelledby="bets-heading">
           <h2 id="bets-heading" class="panel__title">Place bets (3 per person)</h2>
-          <p class="panel__hint">Each player picks 3 events they think will happen this episode.</p>
+          <p class="panel__hint">Each player picks 3 events they think will happen this week.</p>
           <div id="bets-grid" class="bets-grid"></div>
         </section>
 
         <section class="panel panel--wide desktop-bet-section" aria-labelledby="elim-bets-heading">
-          <h2 id="elim-bets-heading" class="panel__title">Who goes home? (1 pick per person)</h2>
+          <h2 id="elim-bets-heading" class="panel__title">Who goes home?</h2>
           <p class="panel__hint">
             Each player picks the one contestant they think won't get a rose.
             <span id="elim-odds-note" class="elim-odds-note"></span>
@@ -356,7 +356,7 @@
 
         <section class="panel panel--wide panel--scoring" aria-labelledby="elim-results-heading">
           <h2 id="elim-results-heading" class="panel__title">Who didn't get a rose?</h2>
-          <p class="panel__hint">Tick each contestant eliminated this episode. They'll be removed from the next episode's lineup.</p>
+          <p class="panel__hint">Tick each contestant eliminated this week. They'll be removed from next week's lineup.</p>
           <div id="elim-results-list" class="elim-results-grid"></div>
           <p id="episode-score-summary" class="score-summary" hidden></p>
         </section>

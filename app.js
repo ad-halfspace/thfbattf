@@ -10,7 +10,7 @@ const WEEKLY_RECAP = "weekly-recap";
 const MY_STATS = "my-stats";
 const ABOUT = "about";
 
-const EXPECTED_SEASON_LENGTH = 30;
+const EXPECTED_SEASON_LENGTH = 15;
 
 const LIKELIHOOD_PRESETS = [
   { id: "very-likely",  label: "Very likely",  odds: 1.5 },
@@ -37,7 +37,7 @@ const SEASON_BET_CATEGORIES = [
   { key: "mie-winner",             label: "Mies sidste rose",                 desc: "Hvem ender Mie med at v\u00E6lge?",                                                  points: 20, inputType: "contestant" },
   { key: "sofie-winner",           label: "Sofies sidste rose",               desc: "Hvem ender Sofie med at v\u00E6lge?",                                                points: 20, inputType: "contestant" },
   { key: "first-kiss",             label: "F\u00F8rste bejler til at kysse med en bachelorette", desc: "Navngiv den specifikke bejler.",                                  points: 12, inputType: "contestant" },
-  { key: "episode-first-kiss",     label: "Hvilken episode sker f\u00F8rste kys?", desc: "V\u00E6lg episodenummer (1\u2013N). T\u00E6ttest p\u00E5 vinder.",             points: 12, inputType: "episode" },
+  { key: "episode-first-kiss",     label: "Hvilken uge sker f\u00F8rste kys?", desc: "V\u00E6lg ugenummer (1\u2013N). T\u00E6ttest p\u00E5 vinder.",             points: 12, inputType: "week" },
   { key: "bachelorette-quits",     label: "Forlader \u00E9n af bachelorettes s\u00E6sonen f\u00F8r tid?", desc: "Usandsynligt men muligt. Ja/nej.",                              points: 20, inputType: "yesno" },
   { key: "first-bachelorette-cry", label: "F\u00F8rste bachelorette til at gr\u00E6de", desc: "V\u00E6lg Mie eller Sofie.",                                              points: 6,  inputType: "bachelorette" },
 ];
@@ -261,7 +261,7 @@ function uid() {
 }
 
 function episodeTabLabel(index) {
-  return `Episode ${index + 1}`;
+  return `Week ${index + 1}`;
 }
 
 function deleteActiveEpisode() {
@@ -271,7 +271,7 @@ function deleteActiveEpisode() {
   const label = episodeTabLabel(idx);
   if (
     !confirm(
-      `Delete ${label}? All bets and marked results for this episode will be removed. This cannot be undone.`
+      `Delete ${label}? All bets and marked results for this week will be removed. This cannot be undone.`
     )
   )
     return;
@@ -299,7 +299,7 @@ function defaultEpisodes() {
   return [
     {
       id: "ep1",
-      title: "Episode 1",
+      title: "Week 1",
       guys: CAST_BA4_2026.map((c) => ({ id: uid(), name: c.name })),
       events: [
         { id: uid(), text: "Someone says “journey” unironically", odds: 1.8 },
@@ -311,7 +311,7 @@ function defaultEpisodes() {
     },
     {
       id: "ep2",
-      title: "Episode 2",
+      title: "Week 2",
       guys: [
         { id: uid(), name: "Alex" },
         { id: uid(), name: "Jordan" },
@@ -326,7 +326,7 @@ function defaultEpisodes() {
     },
     {
       id: "ep3",
-      title: "Episode 3",
+      title: "Week 3",
       guys: [
         { id: uid(), name: "Alex" },
         { id: uid(), name: "Jordan" },
@@ -497,31 +497,30 @@ function isEpisodeBetsLocked(ep) {
   return ep?.betsLocked === true || isEpisodeClosed(ep);
 }
 
-function getNextAirDate(from) {
+function getNextTuesday(from) {
   const d = new Date(from);
   d.setHours(12, 0, 0, 0);
   for (let i = 1; i <= 7; i++) {
     const next = new Date(d);
     next.setDate(d.getDate() + i);
-    const dow = next.getDay();
-    if (dow === 2 || dow === 3 || dow === 4) {
-      return next.toISOString().slice(0, 10);
-    }
+    if (next.getDay() === 2) return next.toISOString().slice(0, 10);
   }
   return d.toISOString().slice(0, 10);
 }
 
-function suggestNextAirDate() {
+function suggestNextWeekStart() {
   const lastEp = [...state.episodes].reverse().find((ep) => ep.airDate);
-  if (lastEp) return getNextAirDate(new Date(lastEp.airDate + "T12:00:00"));
-  return getNextAirDate(new Date());
+  if (lastEp) return getNextTuesday(new Date(lastEp.airDate + "T12:00:00"));
+  const today = new Date();
+  if (today.getDay() === 2) return today.toISOString().slice(0, 10);
+  return getNextTuesday(today);
 }
 
-function copenhagenMidnight(dateString) {
-  const [y, m, d] = dateString.split("-").map(Number);
-  const prevDay = new Date(y, m - 1, d - 1);
-  const py = prevDay.getFullYear(), pm = prevDay.getMonth() + 1, pd = prevDay.getDate();
-  const guess = new Date(Date.UTC(py, pm - 1, pd, 22, 0, 0));
+function mondayLockDeadline(tuesdayDateString) {
+  const [y, m, d] = tuesdayDateString.split("-").map(Number);
+  const monday = new Date(y, m - 1, d - 1);
+  const my = monday.getFullYear(), mm = monday.getMonth() + 1, md = monday.getDate();
+  const guess = new Date(Date.UTC(my, mm - 1, md, 22, 0, 0));
   for (let offsetH = -2; offsetH <= 2; offsetH++) {
     const ts = guess.getTime() - offsetH * 3600000;
     const parts = new Intl.DateTimeFormat("en-GB", {
@@ -531,22 +530,38 @@ function copenhagenMidnight(dateString) {
       hour12: false
     }).formatToParts(new Date(ts));
     const get = (t) => Number(parts.find((p) => p.type === t).value);
-    if (get("day") === pd && get("month") === pm && get("hour") === 23 && get("minute") === 0) {
+    if (get("day") === md && get("month") === mm && get("hour") === 23 && get("minute") === 0) {
       return ts + 59 * 60000;
     }
   }
-  return new Date(Date.UTC(py, pm - 1, pd, 21, 59, 0)).getTime();
+  return new Date(Date.UTC(my, mm - 1, md, 21, 59, 0)).getTime();
+}
+
+function formatWeekDateRange(tuesdayDateStr) {
+  if (!tuesdayDateStr) return "";
+  const [y, m, d] = tuesdayDateStr.split("-").map(Number);
+  const tue = new Date(y, m - 1, d);
+  const thu = new Date(y, m - 1, d + 2);
+  const tueDay = tue.getDate();
+  const thuDay = thu.getDate();
+  const thuMonth = DANISH_MONTHS[thu.getMonth()];
+  const thuYear = thu.getFullYear();
+  if (tue.getMonth() === thu.getMonth()) {
+    return `tirsdag \u2013 torsdag, ${tueDay}\u2013${thuDay}. ${thuMonth} ${thuYear}`;
+  }
+  const tueMonth = DANISH_MONTHS[tue.getMonth()];
+  return `tirsdag \u2013 torsdag, ${tueDay}. ${tueMonth} \u2013 ${thuDay}. ${thuMonth} ${thuYear}`;
 }
 
 function formatCountdown(deadlineMs) {
   const diff = deadlineMs - Date.now();
-  if (diff <= 0) return "nu";
+  if (diff <= 0) return "now";
   const min = Math.floor(diff / 60000);
   if (min < 60) return `${min} min`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} time${hr > 1 ? "r" : ""}`;
+  if (hr < 24) return `${hr} hr${hr > 1 ? "s" : ""}`;
   const days = Math.floor(hr / 24);
-  return `${days} dag${days > 1 ? "e" : ""}`;
+  return `${days} day${days > 1 ? "s" : ""}`;
 }
 
 function formatDeadlineTime(ms) {
@@ -564,12 +579,7 @@ function toLocalDatetimeString(d) {
 }
 
 function isEliminationEpisode(ep) {
-  if (!ep) return true;
-  if (typeof ep.hasElimination === "boolean") return ep.hasElimination;
-  if (!ep.airDate) return true;
-  const [y, m, d] = ep.airDate.split("-").map(Number);
-  const dow = new Date(y, m - 1, d).getDay();
-  return dow === 4;
+  return true;
 }
 
 /* ── Weekly recap helpers ── */
@@ -650,7 +660,7 @@ function computeWeeklyRecap(weekId) {
   const eps = getEpisodesForWeek(weekId);
   if (!eps.length) return null;
   const airDates = eps.map((e) => e.airDate).filter(Boolean);
-  const dateRange = formatDanishDateRange(airDates[0], airDates[airDates.length - 1]);
+  const dateRange = airDates[0] ? formatWeekDateRange(airDates[0]) : "";
   const allSorted = getAllWeekIds().slice().sort();
   const weekNum = allSorted.indexOf(weekId) + 1;
 
@@ -748,7 +758,7 @@ function computeWeeklyRecap(weekId) {
     ensureEliminatedArray(ceremonyEp);
     const elimSet = new Set(ceremonyEp.eliminated || []);
     if (elimSet.size === 0) {
-      eliminationCallText = "Ingen elimineringer denne uge";
+      eliminationCallText = "No eliminations this week";
     } else {
       const callers = [];
       for (const name of elimSet) {
@@ -762,9 +772,9 @@ function computeWeeklyRecap(weekId) {
       const uniqueCallers = [...new Set(callers)];
       if (uniqueCallers.length === 0) {
         const names = [...elimSet].join(" og ");
-        eliminationCallText = `En uge med overraskelser \u2014 ingen s\u00E5 det komme`;
+        eliminationCallText = `A week of surprises \u2014 nobody saw it coming`;
       } else if (uniqueCallers.length === 1) {
-        eliminationCallText = `\uD83C\uDFAF Kun ${PLAYER_NAMES[uniqueCallers[0]]} ramte plet`;
+        eliminationCallText = `\uD83C\uDFAF Only ${PLAYER_NAMES[uniqueCallers[0]]} called it`;
       }
     }
   }
@@ -830,7 +840,7 @@ function computeWeeklyRecap(weekId) {
   return {
     weekId,
     weekNum,
-    weekLabel: `Uge ${weekNum} \u00B7 ${dateRange}`,
+    weekLabel: `Week ${weekNum} \u00B7 ${dateRange}`,
     dateRange,
     episodes: perEpisode,
     scoreboard,
@@ -1330,7 +1340,7 @@ function addMasterEventToEpisode(epId, text, odds, eventPhase) {
   if (!Array.isArray(ep.events)) ep.events = [];
   const t = text.trim();
   if (ep.events.some((e) => e.text.trim() === t)) {
-    alert("That episode already has this event.");
+    alert("That week already has this event.");
     return false;
   }
   const epIdx = state.episodes.indexOf(ep);
@@ -1399,7 +1409,7 @@ function renderEventBank() {
   const placeholder = document.createElement("option");
   placeholder.value = "";
   placeholder.textContent =
-    state.episodes.length === 0 ? "— Add an episode first —" : "— Select episode —";
+    state.episodes.length === 0 ? "— Add a week first —" : "— Select week —";
   targetSel.append(placeholder);
   state.episodes.forEach((ep, idx) => {
     const opt = document.createElement("option");
@@ -1626,7 +1636,7 @@ function renderEventBank() {
       btn.addEventListener("click", () => {
         const epId = targetSel.value;
         if (!epId) {
-          alert("Choose an episode in the dropdown first.");
+          alert("Choose a week in the dropdown first.");
           return;
         }
         addMasterEventToEpisode(epId, text, currentOdds, evPhase);
@@ -1672,7 +1682,7 @@ function renderMainTabs() {
 
   const pages = [
     { id: OVERVIEW, label: "Overview" },
-    { id: WEEKLY_RECAP, label: "Weekly recap" },
+    { id: WEEKLY_RECAP, label: "Week summaries" },
     { id: CAST, label: "Cast" },
     { id: EVENT_BANK, label: "Bet bank" },
     { id: SEASON_BETS, label: "Season bets" },
@@ -1710,32 +1720,26 @@ function renderMainTabs() {
     return "Menu";
   }
 
-  /* ── desktop tabs (unchanged) ── */
+  /* ── desktop tabs ── */
   const desktopRow = document.createElement("div");
   desktopRow.className = "tabs-desktop";
 
-  pages.forEach(({ id, label }) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "tab";
-    btn.textContent = label;
-    btn.setAttribute("role", "tab");
-    btn.setAttribute("aria-selected", state.activeTab === id ? "true" : "false");
-    btn.addEventListener("click", () => activateTab(id));
-    desktopRow.append(btn);
-  });
+  const overviewBtn = document.createElement("button");
+  overviewBtn.type = "button";
+  overviewBtn.className = "tab";
+  overviewBtn.textContent = "Overview";
+  overviewBtn.setAttribute("role", "tab");
+  overviewBtn.setAttribute("aria-selected", state.activeTab === OVERVIEW ? "true" : "false");
+  overviewBtn.addEventListener("click", () => activateTab(OVERVIEW));
+  desktopRow.append(overviewBtn);
 
   if (state.episodes.length) {
-    const sep = document.createElement("span");
-    sep.className = "tab-separator";
-    desktopRow.append(sep);
-
     const select = document.createElement("select");
     select.className = "tab-episode-select" + (isOnEpisode ? " tab-episode-select--active" : "");
     if (!isOnEpisode) {
       const placeholder = document.createElement("option");
       placeholder.value = "";
-      placeholder.textContent = "Episodes\u2026";
+      placeholder.textContent = "Week bets";
       placeholder.disabled = true;
       placeholder.selected = true;
       select.append(placeholder);
@@ -1751,6 +1755,21 @@ function renderMainTabs() {
     select.addEventListener("change", () => { if (select.value) activateEpisode(select.value); });
     desktopRow.append(select);
   }
+
+  const spacer = document.createElement("span");
+  spacer.className = "tab-spacer";
+  desktopRow.append(spacer);
+
+  pages.filter(p => p.id !== OVERVIEW).forEach(({ id, label }) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab";
+    btn.textContent = label;
+    btn.setAttribute("role", "tab");
+    btn.setAttribute("aria-selected", state.activeTab === id ? "true" : "false");
+    btn.addEventListener("click", () => activateTab(id));
+    desktopRow.append(btn);
+  });
   root.append(desktopRow);
 
   /* ── mobile menu ── */
@@ -1797,7 +1816,7 @@ function renderMainTabs() {
   if (state.episodes.length) {
     const epHeader = document.createElement("span");
     epHeader.className = "mobile-drawer__section";
-    epHeader.textContent = "Episodes";
+    epHeader.textContent = "Weeks";
     drawer.append(epHeader);
 
     for (let idx = state.episodes.length - 1; idx >= 0; idx--) {
@@ -2262,11 +2281,11 @@ function renderEpisodeScoreSummary() {
     let extra = "";
     if (bd?.bonus > 0) {
       extra = ` <span class="streak-bonus-tag">\uD83D\uDD25 +${bd.bonus} streak</span>`;
-      lines.push(`${escapeHtml(name)}: ${bd.streakAfter}-episode streak \u2192 +${bd.bonus} pts`);
+      lines.push(`${escapeHtml(name)}: ${bd.streakAfter}-week streak \u2192 +${bd.bonus} pts`);
     }
     return `<strong>${escapeHtml(name)}</strong>: ${pts[i].toFixed(2)} pts${extra}`;
   });
-  let html = `This episode: ${parts.join(" \u00B7 ")}`;
+  let html = `This week: ${parts.join(" \u00B7 ")}`;
   if (lines.length) {
     html += `<br><span class="streak-summary">${lines.join(" \u00B7 ")}</span>`;
   }
@@ -2377,7 +2396,7 @@ function renderStreakLeaders() {
     const p = document.createElement("p");
     p.className = "panel__hint";
     p.style.margin = "0";
-    p.textContent = "Close episodes with correct bets to build streaks.";
+    p.textContent = "Close weeks with correct bets to build streaks.";
     root.append(p);
     return;
   }
@@ -2410,7 +2429,7 @@ function renderStreakLeaders() {
 
 function seasonBetMatches(cat, pick, actual) {
   if (!pick || !actual) return false;
-  if (cat.inputType === "episode") {
+  if (cat.inputType === "week") {
     return String(pick) === String(actual);
   }
   return pick === actual;
@@ -2458,14 +2477,14 @@ function buildSeasonInput(cat, currentVal, locked, onChange) {
     sel.addEventListener("change", () => onChange(sel.value || null));
     return sel;
   }
-  if (type === "episode") {
+  if (type === "week") {
     const inp = document.createElement("input");
     inp.type = "number";
     inp.className = "input season-card__select season-card__select--narrow";
     inp.min = 1;
     inp.max = Math.max(state.episodes.length, EXPECTED_SEASON_LENGTH);
     inp.step = 1;
-    inp.placeholder = "Ep.";
+    inp.placeholder = "Wk.";
     inp.disabled = locked;
     inp.value = currentVal || "";
     inp.addEventListener("change", () => onChange(inp.value ? String(inp.value) : null));
@@ -2928,7 +2947,7 @@ function renderAllPlayersOverview(root) {
     { label: "Hit rate", fn: (s) => s.overview.hitRate != null ? `${s.overview.hitRate}%` : "\u2014", raw: (s) => s.overview.hitRate ?? -1, cmp: "high" },
     { label: "Current streak", fn: (s) => s.overview.currentStreak > 0 ? String(s.overview.currentStreak) : "0", raw: (s) => s.overview.currentStreak, cmp: "high" },
     { label: "Biggest win", fn: (s) => s.overview.biggestWin.odds > 0 ? `${s.overview.biggestWin.odds}\u00D7` : "\u2014", raw: (s) => s.overview.biggestWin.odds, cmp: "high" },
-    { label: "Best night", fn: (s) => s.overview.bestNight.pts > 0 ? `${s.overview.bestNight.pts.toFixed(1)}` : "\u2014", raw: (s) => s.overview.bestNight.pts, cmp: "high" },
+    { label: "Best week", fn: (s) => s.overview.bestNight.pts > 0 ? `${s.overview.bestNight.pts.toFixed(1)}` : "\u2014", raw: (s) => s.overview.bestNight.pts, cmp: "high" },
     { label: "Elim. correct", fn: (s) => `${s.eliminations.correctBets}/${s.eliminations.totalBets}`, raw: (s) => s.eliminations.correctBets, cmp: "high" },
     { label: "Elim. hit rate", fn: (s) => s.eliminations.hitRate != null ? `${s.eliminations.hitRate}%` : "\u2014", raw: (s) => s.eliminations.hitRate ?? -1, cmp: "high" },
   ];
@@ -3044,7 +3063,7 @@ function renderSinglePlayerStats(root, p) {
   if (stats.totalBets === 0) {
     const empty = document.createElement("div");
     empty.className = "ms-empty";
-    empty.innerHTML = `<p>No bets placed yet. Place bets on an episode to see stats.</p>`;
+    empty.innerHTML = `<p>No bets placed yet. Place bets on a week to see stats.</p>`;
     root.append(empty);
     return;
   }
@@ -3088,7 +3107,7 @@ function renderStatsOverview(root, stats) {
     { label: "Rank", value: ordinal[o.rank] || `${o.rank}th` },
     { label: "Hit rate", value: o.hitRate != null ? `${o.hitRate}%` : "—" },
     { label: "Biggest win", value: o.biggestWin.odds > 0 ? `${o.biggestWin.odds}\u00D7` : "—", sub: o.biggestWin.odds > 0 ? o.biggestWin.text : null },
-    { label: "Best night", value: o.bestNight.pts > 0 ? `${o.bestNight.pts.toFixed(1)} pts` : "—", sub: o.bestNight.pts > 0 ? o.bestNight.label : null },
+    { label: "Best week", value: o.bestNight.pts > 0 ? `${o.bestNight.pts.toFixed(1)} pts` : "—", sub: o.bestNight.pts > 0 ? o.bestNight.label : null },
     { label: "Current streak", value: o.currentStreak > 0 ? `\uD83D\uDD25 ${o.currentStreak}` : "0" },
   ];
   for (const c of cards) {
@@ -3162,7 +3181,7 @@ function renderStatsWeeklyTrend(root, stats) {
     h.textContent = "Points per week";
     const hint = document.createElement("p");
     hint.className = "panel__hint";
-    hint.textContent = "Available after at least 2 closed episodes.";
+    hint.textContent = "Available after at least 2 closed weeks.";
     section.append(h, hint);
     root.append(section);
     return;
@@ -3417,35 +3436,35 @@ function renderAbout() {
         <span class="about-numbered__num">01</span>
         <div class="about-numbered__body">
           <h3 class="about-numbered__title">Pick your bets</h3>
-          <p>Before each episode airs, each of us picks <strong>3 events</strong> from a bank of way too many bets \u2014 things like \u201Csomeone cries,\u201D \u201Ca group date goes wrong,\u201D or \u201CStig Rossen makes an appearance.\u201D Each event has odds. Rarer events pay more. This is gambling for people who are too anxious to actually gamble.</p>
+          <p>Before each week\u2019s episodes air, each of us picks <strong>3 events</strong> from a bank of way too many bets \u2014 things like \u201Csomeone cries,\u201D \u201Ca group date goes wrong,\u201D or \u201CStig Rossen makes an appearance.\u201D Each event has odds. Rarer events pay more. This is gambling for people who are too anxious to actually gamble.</p>
         </div>
       </div>
       <div class="about-numbered__item">
         <span class="about-numbered__num">02</span>
         <div class="about-numbered__body">
           <h3 class="about-numbered__title">Roseceremonien</h3>
-          <p>Thursdays come with a rose ceremony, which adds an <strong>extra elimination bet</strong>: who\u2019s going home? Correct guesses pay out based on how many contestants are still in the running. Early-season guesses are genuinely hard. Late-season guesses are mostly vibes.</p>
+          <p>Each week features a rose ceremony, which adds an <strong>extra elimination bet</strong>: who\u2019s going home? Correct guesses pay out based on how many contestants are still in the running. Early-season guesses are genuinely hard. Late-season guesses are mostly vibes.</p>
         </div>
       </div>
       <div class="about-numbered__item">
         <span class="about-numbered__num">03</span>
         <div class="about-numbered__body">
           <h3 class="about-numbered__title">Bets lock automatically</h3>
-          <p>At midnight on air day, all bets lock \u2014 no late entries, no edits, no mercy. We love each other. We don\u2019t trust each other.</p>
+          <p>At midnight before the week\u2019s first episode, all bets lock \u2014 no late entries, no edits, no mercy. We love each other. We don\u2019t trust each other.</p>
         </div>
       </div>
       <div class="about-numbered__item">
         <span class="about-numbered__num">04</span>
         <div class="about-numbered__body">
           <h3 class="about-numbered__title">Mark what happened</h3>
-          <p>After the episode we tick off what actually happened and who got eliminated. Points get tallied automatically and the leaderboard updates instantly.</p>
+          <p>After the week\u2019s episodes we tick off what actually happened and who got eliminated. Points get tallied automatically and the leaderboard updates instantly.</p>
         </div>
       </div>
       <div class="about-numbered__item">
         <span class="about-numbered__num">05</span>
         <div class="about-numbered__body">
           <h3 class="about-numbered__title">Nuttet</h3>
-          <p>Every Thursday, each of us picks which contestant we thought was cutest that week. It\u2019s worth zero points \u2014 pure vibes, no strategy. A running tally on the overview page shows who the group collectively finds most adorable. It\u2019s a feelings column.</p>
+          <p>Every week, each of us picks which contestant we thought was cutest. It\u2019s worth zero points \u2014 pure vibes, no strategy. A running tally on the overview page shows who the group collectively finds most adorable. It\u2019s a feelings column.</p>
         </div>
       </div>
       <div class="about-numbered__item">
@@ -3458,15 +3477,15 @@ function renderAbout() {
       <div class="about-numbered__item">
         <span class="about-numbered__num">07</span>
         <div class="about-numbered__body">
-          <h3 class="about-numbered__title">Stats &amp; weekly recaps</h3>
-          <p>The app tracks everything: hit rates, streaks, total points per episode, and detailed player stats. A recap lands Friday morning, which we then immediately misread and take personally.</p>
+          <h3 class="about-numbered__title">Stats &amp; week summaries</h3>
+          <p>The app tracks everything: hit rates, streaks, total points per week, and detailed player stats. A summary is available once the week closes, which we then immediately misread and take personally.</p>
         </div>
       </div>
       <div class="about-numbered__item">
         <span class="about-numbered__num">08</span>
         <div class="about-numbered__body">
           <h3 class="about-numbered__title">Everything syncs live</h3>
-          <p>No refreshing. No \u201Cdid you see my bet?\u201D If Yas places a bet from her couch, Thiller\u2019s phone knows about it before Yas has set the phone down. Open it on your phone during the episode or check the leaderboard on your laptop the next morning.</p>
+          <p>No refreshing. No \u201Cdid you see my bet?\u201D If Yas places a bet from her couch, Thiller\u2019s phone knows about it before Yas has set the phone down. Open it on your phone while watching or check the leaderboard on your laptop the next morning.</p>
         </div>
       </div>
     </div>
@@ -3484,7 +3503,7 @@ function renderAbout() {
     <p>Perfect odds would make this a math exercise. We have spreadsheets at work. We did not build this to use another spreadsheet. A 20\u00D7 bet on something absurd happening is the entire personality of this site.</p>
     <p>There are no accounts, no logins. Four of us, one shared state, Firebase doing the actual work. If we can\u2019t trust each other not to tamper with the database, the friendship is cooked anyway and no login screen is going to save it.</p>
     <p>The bet bank is bachelorette-specific. The events know this is Mie and Sofie\u2019s season. They know about Lulu. They reference Sicily. A bet bank that doesn\u2019t mention Stig Rossen at least once is a bet bank that has failed you.</p>
-    <p>Odds aren\u2019t sacred. We tune them between episodes. If \u201Csomeone cries\u201D keeps happening 100% of the time, that is feedback from the universe and we take it seriously. Dulde has a whole theory about this. We do not have time to hear the whole theory.</p>
+    <p>Odds aren\u2019t sacred. We tune them between weeks. If \u201Csomeone cries\u201D keeps happening 100% of the time, that is feedback from the universe and we take it seriously. Dulde has a whole theory about this. We do not have time to hear the whole theory.</p>
   </div>
 </section>
 
@@ -3621,7 +3640,7 @@ function renderAllBetsOverview() {
     const p = document.createElement("p");
     p.className = "panel__hint";
     p.style.margin = "0";
-    p.textContent = "No episodes yet.";
+    p.textContent = "No weeks yet.";
     root.append(p);
     return;
   }
@@ -3655,7 +3674,7 @@ function renderAllBetsOverview() {
     const summary = document.createElement("summary");
     summary.className = "ov-bets-episode__summary";
 
-    const titleText = ep.name || `Episode ${epIdx + 1}`;
+    const titleText = ep.name || `Week ${epIdx + 1}`;
     const totalBets = playerRows.reduce((s, r) => s + r.picks.length + (r.elimPick ? 1 : 0), 0);
     const playersActive = playerRows.length;
 
@@ -3753,7 +3772,7 @@ function renderAllBetsOverview() {
     const p = document.createElement("p");
     p.className = "panel__hint";
     p.style.margin = "0";
-    p.textContent = "No bets placed yet. Go to an episode to start betting!";
+    p.textContent = "No bets placed yet. Go to a week to start betting!";
     root.append(p);
   }
 }
@@ -3804,13 +3823,6 @@ function getNuttetForWeek(thursdayEpId) {
 function renderNuttetSection(ep) {
   const root = document.getElementById("nuttet-section");
   if (!root) return;
-  if (!ep.airDate) { root.hidden = true; return; }
-  const [ny, nm, nd] = ep.airDate.split("-").map(Number);
-  const isThursday = new Date(ny, nm - 1, nd).getDay() === 4;
-  if (!isThursday) {
-    root.hidden = true;
-    return;
-  }
   root.hidden = false;
   root.innerHTML = "";
 
@@ -3843,7 +3855,7 @@ function renderNuttetSection(ep) {
 
     const emptyOpt = document.createElement("option");
     emptyOpt.value = "";
-    emptyOpt.textContent = "\u2014 v\u00E6lg en \u2014";
+    emptyOpt.textContent = "\u2014 pick one \u2014";
     select.append(emptyOpt);
 
     const currentPick = picks[p] || "";
@@ -3886,14 +3898,8 @@ function renderPlayerSections() {
   const closed = isEpisodeClosed(ep);
   const hasElim = isEliminationEpisode(ep);
 
-  const isThursday = (() => {
-    if (!ep.airDate) return false;
-    const [y, m, d] = ep.airDate.split("-").map(Number);
-    return new Date(y, m - 1, d).getDay() === 4;
-  })();
-
-  const eligible = isThursday ? getEligibleContestantsForNuttet(ep.id) : [];
-  const nuttetPicks = isThursday ? getNuttetForWeek(ep.id) : {};
+  const eligible = getEligibleContestantsForNuttet(ep.id);
+  const nuttetPicks = getNuttetForWeek(ep.id);
   const elimOdds = hasElim ? eliminationOdds(ep) : 0;
 
   for (let p = 0; p < PLAYER_COUNT; p++) {
@@ -3976,7 +3982,7 @@ function renderPlayerSections() {
     }
 
     // --- Nuttet pick ---
-    if (isThursday) {
+    {
       const nuttetLabel = document.createElement("span");
       nuttetLabel.className = "player-section-card__label";
       nuttetLabel.textContent = "Nuttet this week";
@@ -3988,7 +3994,7 @@ function renderPlayerSections() {
 
       const emptyOpt = document.createElement("option");
       emptyOpt.value = "";
-      emptyOpt.textContent = "\u2014 v\u00E6lg en \u2014";
+      emptyOpt.textContent = "\u2014 pick one \u2014";
       nuttetSelect.append(emptyOpt);
 
       const currentPick = nuttetPicks[p] || "";
@@ -4098,25 +4104,14 @@ function renderEpisodeContent() {
     heroEl.innerHTML = "";
     if (ep) {
       const epIdx = state.episodes.indexOf(ep);
-      const weekId = ep.airDate ? getWeekId(ep.airDate) : null;
-      const allWeeks = getAllWeekIds().slice().sort();
-      const weekNum = weekId ? allWeeks.indexOf(weekId) + 1 : null;
-      const dayName = ep.airDate ? getDayOfWeekDanish(ep.airDate) : null;
 
       const h2 = document.createElement("h2");
       h2.className = "page-hero__title";
-      h2.textContent = `Episode ${epIdx + 1}`;
+      h2.textContent = `Week ${epIdx + 1}`;
 
       const tagline = document.createElement("p");
       tagline.className = "page-hero__tagline";
-      const parts = [];
-      if (weekNum) parts.push(`Week ${weekNum}`);
-      if (dayName) parts.push(dayName);
-      if (ep.airDate) {
-        const d = new Date(ep.airDate + "T12:00:00");
-        parts.push(d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }));
-      }
-      tagline.textContent = parts.join(" \u00B7 ");
+      tagline.textContent = formatWeekDateRange(ep.airDate);
 
       heroEl.append(h2, tagline);
 
@@ -4179,32 +4174,20 @@ function renderEpisodeContent() {
     if (!closed) {
       const label = document.createElement("span");
       label.className = "episode-airdate-bar__label";
-      label.textContent = "Air date:";
+      label.textContent = "Week start (Tue):";
       const input = document.createElement("input");
       input.type = "date";
       input.className = "input input--narrow episode-airdate-bar__input";
       input.value = ep.airDate || "";
       input.addEventListener("change", () => {
         ep.airDate = input.value || null;
-        ep.betsLockDeadline = ep.airDate ? copenhagenMidnight(ep.airDate) : null;
-        delete ep.hasElimination;
+        ep.betsLockDeadline = ep.airDate ? mondayLockDeadline(ep.airDate) : null;
         saveState();
         renderEpisodeContent();
         renderMainTabs();
       });
 
-      const elimLabel = document.createElement("label");
-      elimLabel.className = "episode-airdate-bar__elim-toggle";
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.checked = isEliminationEpisode(ep);
-      cb.addEventListener("change", () => {
-        ep.hasElimination = cb.checked;
-        saveState();
-        renderEpisodeContent();
-      });
-      elimLabel.append(cb, document.createTextNode(" Roseceremoni"));
-      airDateBar.append(label, input, elimLabel);
+      airDateBar.append(label, input);
     }
   } else if (airDateBar) {
     airDateBar.hidden = true;
@@ -4241,7 +4224,7 @@ function renderDeadlineDisplay(el, ep) {
     const diff = dl - now;
     const isWarn = diff < 6 * 3600000;
     el.className = "deadline-display" + (isWarn ? " deadline-display--warn" : "");
-    el.textContent = "Bets l\u00E5ses " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
+    el.textContent = "Bets lock " + formatDeadlineTime(dl) + " (\u2248 " + formatCountdown(dl) + ")";
   }
 }
 
@@ -4312,7 +4295,7 @@ function wireActions() {
   const addEpAirdate = document.getElementById("new-ep-airdate");
 
   addEpToggle?.addEventListener("click", () => {
-    addEpAirdate.value = suggestNextAirDate();
+    addEpAirdate.value = suggestNextWeekStart();
     addEpModal.hidden = false;
   });
 
@@ -4330,11 +4313,11 @@ function wireActions() {
     const carryGuys = prevEp ? guysAfterEliminations(prevEp).map((g) => ({ id: uid(), name: g.name })) : [];
 
     const airDate = addEpAirdate?.value || null;
-    const betsLockDeadline = airDate ? copenhagenMidnight(airDate) : null;
+    const betsLockDeadline = airDate ? mondayLockDeadline(airDate) : null;
 
     const newEp = {
       id: uid(),
-      title: `Episode ${n}`,
+      title: `Week ${n}`,
       guys: carryGuys,
       events: [],
       eliminated: [],
@@ -4417,7 +4400,7 @@ function wireActions() {
   });
 
   function handleReset() {
-    const typed = prompt('This will erase ALL episodes, bets, and scores.\n\nA backup will be saved automatically.\n\nType DELETE to confirm:');
+    const typed = prompt('This will erase ALL weeks, bets, and scores.\n\nA backup will be saved automatically.\n\nType DELETE to confirm:');
     if (typed !== "DELETE") return;
     const backup = sharedState();
     const ts = new Date().toISOString().replace(/[:.]/g, "-");
@@ -4463,7 +4446,7 @@ function wireActions() {
   document.getElementById("lock-bets")?.addEventListener("click", () => {
     const ep = activeEpisode();
     if (!ep) return;
-    if (!confirm("Lock bets for this episode? Players won\u2019t be able to change their picks until unlocked.")) return;
+    if (!confirm("Lock bets for this week? Players won\u2019t be able to change their picks until unlocked.")) return;
     ep.betsLocked = true;
     ep.betsLockedAt = Date.now();
     saveState();
@@ -4495,11 +4478,11 @@ function wireActions() {
     const nextEp = state.episodes[epIdx + 1];
     if (!nextEp) {
       const carryGuys = guysAfterEliminations(ep).map((g) => ({ id: uid(), name: g.name }));
-      const nextAirDate = ep.airDate ? getNextAirDate(new Date(ep.airDate + "T12:00:00")) : null;
-      const betsLockDeadline = nextAirDate ? copenhagenMidnight(nextAirDate) : null;
+      const nextAirDate = ep.airDate ? getNextTuesday(new Date(ep.airDate + "T12:00:00")) : null;
+      const betsLockDeadline = nextAirDate ? mondayLockDeadline(nextAirDate) : null;
       const newEp = {
         id: uid(),
-        title: `Episode ${state.episodes.length + 1}`,
+        title: `Week ${state.episodes.length + 1}`,
         guys: carryGuys,
         events: [],
         eliminated: [],
@@ -4520,7 +4503,7 @@ function wireActions() {
   document.getElementById("reopen-episode")?.addEventListener("click", () => {
     const ep = activeEpisode();
     if (!ep) return;
-    if (!confirm("Reopen this episode? Be careful not to change finalized data by accident.")) return;
+    if (!confirm("Reopen this week? Be careful not to change finalized data by accident.")) return;
     ep.closed = false;
     ep.betsLocked = false;
     saveState();
@@ -4563,10 +4546,10 @@ function markRecapSeen(weekId) {
 }
 
 function generateRecapMarkdown(recap) {
-  let md = `UGE ${recap.weekNum} \u2014 ${recap.dateRange}\n`;
+  let md = `WEEK ${recap.weekNum} \u2014 ${recap.dateRange}\n`;
   md += "___________________\n\n";
 
-  md += "\uD83C\uDFAF UGENS STILLING:\n";
+  md += "\uD83C\uDFAF SCOREBOARD:\n";
   const thursdayEp = getThursdayEpisodeForWeek(recap.weekId || "");
   const nuttetPicks = thursdayEp ? getNuttetForWeek(thursdayEp.id) : {};
   recap.scoreboard.forEach((s, idx) => {
@@ -4582,35 +4565,35 @@ function generateRecapMarkdown(recap) {
     md += "\uD83E\uDD21 HIGHLIGHTS:\n";
     if (recap.highlights.biggestPayout) {
       const h = recap.highlights.biggestPayout;
-      md += `- Ugens gevinst: ${h.player} ramte '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+      md += `- Biggest payout: ${h.player} hit '${h.text}' at ${formatDanishNumber(h.odds)}x\n`;
     }
     if (recap.highlights.biggestWhiff) {
       const h = recap.highlights.biggestWhiff;
-      md += `- Ugens fiasko: ${h.player} satsede p\u00E5 '${h.text}' til ${formatDanishNumber(h.odds)}x (${h.day})\n`;
+      md += `- Biggest whiff: ${h.player} bet on '${h.text}' at ${formatDanishNumber(h.odds)}x\n`;
     }
     md += "\n";
   }
 
   if (recap.eliminations.length) {
-    md += "\u274C ELIMINERING:\n";
+    md += "\u274C ELIMINATIONS:\n";
     for (const e of recap.eliminations) {
       const callerNames = e.calledBy.map((i) => PLAYER_NAMES[i]);
       if (callerNames.length) {
-        md += `- ${e.contestantName} r\u00F8g ud. ${callerNames.join(" og ")} ramte plet.\n`;
+        md += `- ${e.contestantName} went home. Called by ${callerNames.join(" and ")}.\n`;
       } else {
-        md += `- ${e.contestantName} r\u00F8g ud. Ingen s\u00E5 det komme.\n`;
+        md += `- ${e.contestantName} went home. Nobody saw it coming.\n`;
       }
     }
     md += "\n";
   }
 
-  md += "\uD83C\uDFC6 S\u00C6SONEN INDTIL NU\n";
+  md += "\uD83C\uDFC6 SEASON STANDINGS:\n";
   recap.seasonStandings.forEach((s) => {
     const name = PLAYER_NAMES[s.playerIndex];
     md += `- ${name} \u2014 ${formatDanishNumber(s.totalPoints)} pts\n`;
   });
 
-  md += `\n\uD83D\uDC98 BEJLERE TILBAGE\n`;
+  md += `\n\uD83D\uDC98 CONTESTANTS REMAINING:\n`;
   md += `- ${recap.nextWeek.contestantsRemaining}!`;
   return md.trim();
 }
@@ -4633,7 +4616,7 @@ function renderWeeklyRecap() {
     const currentWeekNum = sortedWeeks.indexOf(currentWeek) + 1;
     const strip = document.createElement("div");
     strip.className = "weekly-recap-progress__strip";
-    strip.textContent = `Uge ${currentWeekNum} i gang: ${closedCount} af ${eps.length} episoder lukket`;
+    strip.textContent = `Week ${currentWeekNum} in progress`;
     progress.append(strip);
   }
 
@@ -4641,7 +4624,7 @@ function renderWeeklyRecap() {
   if (!completeWeeks.length) {
     const empty = document.createElement("p");
     empty.className = "panel__hint";
-    empty.textContent = "Ingen f\u00E6rdige uger endnu. Luk alle episoder i en uge for at se opsummeringen.";
+    empty.textContent = "No closed weeks yet. Close a week to see its summary.";
     root.append(empty);
     return;
   }
@@ -4671,10 +4654,10 @@ function renderWeeklyRecap() {
     const copyBtn = document.createElement("button");
     copyBtn.type = "button";
     copyBtn.className = "btn btn--ghost recap-card__copy";
-    copyBtn.textContent = "Kopier";
+    copyBtn.textContent = "Copy";
     copyBtn.addEventListener("click", () => {
       const md = generateRecapMarkdown(recap);
-      navigator.clipboard.writeText(md).then(() => showToast("Kopieret!")).catch(() => showToast("Kunne ikke kopiere"));
+      navigator.clipboard.writeText(md).then(() => showToast("Copied!")).catch(() => showToast("Could not copy"));
     });
     const toggle = document.createElement("span");
     toggle.className = "recap-card__toggle";
@@ -4689,7 +4672,7 @@ function renderWeeklyRecap() {
     sbSection.className = "recap-section";
     const sbTitle = document.createElement("h4");
     sbTitle.className = "recap-section__title";
-    sbTitle.textContent = "Ugens stilling";
+    sbTitle.textContent = "Scoreboard";
     sbSection.append(sbTitle);
     const sbThursdayEp = getThursdayEpisodeForWeek(weekId);
     const sbNuttetPicks = sbThursdayEp ? getNuttetForWeek(sbThursdayEp.id) : {};
@@ -4710,12 +4693,6 @@ function renderWeeklyRecap() {
       nuttetEl.className = "recap-sb-row__nuttet";
       nuttetEl.textContent = nuttetPick ? `Nuttet: ${nuttetPick}` : "";
       row.append(rank, name, pts, nuttetEl);
-      if (s.bestEpisodeDay && s.bestEpisodePts > 0) {
-        const best = document.createElement("span");
-        best.className = "recap-sb-row__best";
-        best.textContent = `Bedste aften: ${s.bestEpisodeDay}, ${formatDanishNumber(s.bestEpisodePts)} point`;
-        row.append(best);
-      }
       sbSection.append(row);
     });
     cardBody.append(sbSection);
@@ -4726,16 +4703,16 @@ function renderWeeklyRecap() {
     if (hl.biggestPayout) {
       hlItems.push({
         icon: "",
-        title: "Ugens st\u00F8rste gevinst",
-        text: `${hl.biggestPayout.player} ramte '${hl.biggestPayout.text}' til ${formatDanishNumber(hl.biggestPayout.odds)}x (${hl.biggestPayout.day})`,
+        title: "Biggest payout",
+        text: `${hl.biggestPayout.player} hit '${hl.biggestPayout.text}' at ${formatDanishNumber(hl.biggestPayout.odds)}x`,
         accent: "gold",
       });
     }
     if (hl.biggestWhiff) {
       hlItems.push({
         icon: "",
-        title: "Ugens st\u00F8rste fiasko",
-        text: `${hl.biggestWhiff.player} satsede p\u00E5 '${hl.biggestWhiff.text}' til ${formatDanishNumber(hl.biggestWhiff.odds)}x (${hl.biggestWhiff.day}). Det skete ikke.`,
+        title: "Biggest whiff",
+        text: `${hl.biggestWhiff.player} bet on '${hl.biggestWhiff.text}' at ${formatDanishNumber(hl.biggestWhiff.odds)}x. It didn\u2019t happen.`,
         accent: "coral",
       });
     }
@@ -4743,17 +4720,17 @@ function renderWeeklyRecap() {
       hlItems.push({
         icon: "",
         title: "Hot streak",
-        text: `${hl.hotStreak.player} er p\u00E5 en ${hl.hotStreak.count}-episoders stime`,
+        text: `${hl.hotStreak.player} is on a ${hl.hotStreak.count}-week streak`,
         accent: "purple",
       });
     }
     if (hl.mostPlayedEvent) {
       const mp = hl.mostPlayedEvent;
-      const verb = mp.hit ? "Det skete!" : "Det skete ikke.";
+      const verb = mp.hit ? "It happened!" : "It didn\u2019t happen.";
       hlItems.push({
         icon: "",
-        title: "Ugens mest spillede event",
-        text: `${mp.count} af jer satsede p\u00E5 '${mp.text}'. ${verb}`,
+        title: "Most played event",
+        text: `${mp.count} of you bet on '${mp.text}'. ${verb}`,
         accent: mp.hit ? "gold" : "coral",
       });
     }
@@ -4762,7 +4739,7 @@ function renderWeeklyRecap() {
       hlSection.className = "recap-section";
       const hlTitle = document.createElement("h4");
       hlTitle.className = "recap-section__title";
-      hlTitle.textContent = "Ugens h\u00F8jdepunkter";
+      hlTitle.textContent = "Highlights";
       hlSection.append(hlTitle);
       const hlGrid = document.createElement("div");
       hlGrid.className = "recap-highlights";
@@ -4786,17 +4763,17 @@ function renderWeeklyRecap() {
     }
 
     // ── Section D: Rose ceremony ──
-    if (recap.eliminations.length || recap.highlights.eliminationCallText === "Ingen elimineringer denne uge") {
+    if (recap.eliminations.length || recap.highlights.eliminationCallText === "No eliminations this week") {
       const roseSection = document.createElement("section");
       roseSection.className = "recap-section recap-section--ceremony";
       const roseTitle = document.createElement("h4");
       roseTitle.className = "recap-section__title";
-      roseTitle.textContent = "Torsdagens roseceremoni";
+      roseTitle.textContent = "Rose ceremony";
       roseSection.append(roseTitle);
       if (!recap.eliminations.length) {
         const p = document.createElement("p");
         p.className = "recap-section__note";
-        p.textContent = "Ingen elimineringer denne uge";
+        p.textContent = "No eliminations this week";
         roseSection.append(p);
       } else {
         const photoRow = document.createElement("div");
@@ -4848,7 +4825,7 @@ function renderWeeklyRecap() {
     standSection.className = "recap-section";
     const standTitle = document.createElement("h4");
     standTitle.className = "recap-section__title";
-    standTitle.textContent = "S\u00E6sonstilling";
+    standTitle.textContent = "Season standings";
     standSection.append(standTitle);
     for (const s of recap.seasonStandings) {
       const row = document.createElement("div");
@@ -4880,14 +4857,14 @@ function renderWeeklyRecap() {
       if (s.distanceToFirst > 0) {
         const dist = document.createElement("span");
         dist.className = "recap-stand-row__dist";
-        dist.textContent = `${formatDanishNumber(s.distanceToFirst)} point bagud`;
+        dist.textContent = `${formatDanishNumber(s.distanceToFirst)} pts behind`;
         row.append(dist);
       }
       standSection.append(row);
     }
     const remaining = document.createElement("p");
     remaining.className = "recap-section__note";
-    remaining.textContent = `Bejlere tilbage: ${recap.nextWeek.contestantsRemaining}`;
+    remaining.textContent = `Contestants remaining: ${recap.nextWeek.contestantsRemaining}`;
     standSection.append(remaining);
     cardBody.append(standSection);
 
@@ -4908,11 +4885,11 @@ function checkNewRecapBanner() {
     const banner = document.createElement("div");
     banner.id = "recap-ready-banner";
     banner.className = "recap-ready-banner";
-    banner.innerHTML = `<span>Uge ${seasonWeekNum} opsummering er klar</span>`;
+    banner.innerHTML = `<span>Week ${seasonWeekNum} summary is ready</span>`;
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "btn btn--secondary recap-ready-banner__btn";
-    btn.textContent = "Se opsummering";
+    btn.textContent = "View summary";
     btn.addEventListener("click", () => {
       state.activeTab = WEEKLY_RECAP;
       saveState();
@@ -4988,7 +4965,7 @@ function renderUpcomingDeadlineStrip() {
   const diff = soonest.betsLockDeadline - now;
   const isWarn = diff < 6 * 3600000;
   el.className = "upcoming-deadline-strip" + (isWarn ? " upcoming-deadline-strip--warn" : "");
-  el.textContent = "N\u00E6ste lock: " + episodeTabLabel(soonestIdx) + " \u2014 " + formatCountdown(soonest.betsLockDeadline);
+  el.textContent = "Next lock: " + episodeTabLabel(soonestIdx) + " \u2014 " + formatCountdown(soonest.betsLockDeadline);
 }
 
 function checkDeadlineReminder() {
@@ -5001,7 +4978,7 @@ function checkDeadlineReminder() {
       if (!localStorage.getItem(key)) {
         localStorage.setItem(key, "1");
         const idx = state.episodes.indexOf(ep);
-        showToast("Bets for " + episodeTabLabel(idx) + " l\u00E5ses om " + formatCountdown(ep.betsLockDeadline) + ". Har du valgt?");
+        showToast("Bets for " + episodeTabLabel(idx) + " lock in " + formatCountdown(ep.betsLockDeadline) + ". Have you picked?");
       }
     }
   }
