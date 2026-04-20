@@ -497,6 +497,10 @@ function isEpisodeBetsLocked(ep) {
   return ep?.betsLocked === true || isEpisodeClosed(ep);
 }
 
+function isElimBetsLocked(ep) {
+  return ep?.elimBetsLocked === true || isEpisodeClosed(ep);
+}
+
 function getNextTuesday(from) {
   const d = new Date(from);
   d.setHours(12, 0, 0, 0);
@@ -535,6 +539,27 @@ function mondayLockDeadline(tuesdayDateString) {
     }
   }
   return new Date(Date.UTC(my, mm - 1, md, 21, 59, 0)).getTime();
+}
+
+function wednesdayLockDeadline(tuesdayDateString) {
+  const [y, m, d] = tuesdayDateString.split("-").map(Number);
+  const wed = new Date(y, m - 1, d + 1);
+  const wy = wed.getFullYear(), wm = wed.getMonth() + 1, wd = wed.getDate();
+  const guess = new Date(Date.UTC(wy, wm - 1, wd, 22, 0, 0));
+  for (let offsetH = -2; offsetH <= 2; offsetH++) {
+    const ts = guess.getTime() - offsetH * 3600000;
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Copenhagen",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hour12: false
+    }).formatToParts(new Date(ts));
+    const get = (t) => Number(parts.find((p) => p.type === t).value);
+    if (get("day") === wd && get("month") === wm && get("hour") === 23 && get("minute") === 0) {
+      return ts + 59 * 60000;
+    }
+  }
+  return new Date(Date.UTC(wy, wm - 1, wd, 21, 59, 0)).getTime();
 }
 
 function formatWeekDateRange(tuesdayDateStr) {
@@ -859,6 +884,10 @@ function computeWeeklyRecap(weekId) {
 
 function shouldAutoLock(ep, now) {
   return ep.betsLockDeadline && !ep.betsLocked && !ep.closed && now >= ep.betsLockDeadline;
+}
+
+function shouldAutoLockElim(ep, now) {
+  return ep.elimBetsLockDeadline && !ep.elimBetsLocked && !ep.closed && now >= ep.elimBetsLockDeadline;
 }
 
 let toastTimer = null;
@@ -2138,7 +2167,7 @@ function renderEliminationBets() {
   if (!ep) return;
   if (!Array.isArray(ep.guys)) ep.guys = [];
   ensureEpisodeMaps(ep.id);
-  const frozen = isEpisodeBetsLocked(ep);
+  const frozen = isElimBetsLocked(ep);
 
   if (!ep.guys.length) {
     const p = document.createElement("p");
@@ -3895,6 +3924,7 @@ function renderPlayerSections() {
   ensureEpisodeMaps(ep.id);
 
   const frozen = isEpisodeBetsLocked(ep);
+  const elimFrozen = isElimBetsLocked(ep);
   const closed = isEpisodeClosed(ep);
   const hasElim = isEliminationEpisode(ep);
 
@@ -3969,7 +3999,7 @@ function renderPlayerSections() {
 
       const elimSelect = document.createElement("select");
       elimSelect.className = "player-section-card__select";
-      if (frozen) elimSelect.disabled = true;
+      if (elimFrozen) elimSelect.disabled = true;
       const currentElim = state.eliminationBets[ep.id]?.[p] || "";
       let elimHtml = '<option value="">\u2014 Pick who leaves \u2014</option>';
       for (const g of ep.guys) {
@@ -4153,6 +4183,7 @@ function renderEpisodeContent() {
       input.addEventListener("change", () => {
         ep.airDate = input.value || null;
         ep.betsLockDeadline = ep.airDate ? mondayLockDeadline(ep.airDate) : null;
+        ep.elimBetsLockDeadline = ep.airDate ? wednesdayLockDeadline(ep.airDate) : null;
         saveState();
         renderEpisodeContent();
         renderMainTabs();
@@ -4285,6 +4316,7 @@ function wireActions() {
 
     const airDate = addEpAirdate?.value || null;
     const betsLockDeadline = airDate ? mondayLockDeadline(airDate) : null;
+    const elimBetsLockDeadline = airDate ? wednesdayLockDeadline(airDate) : null;
 
     const newEp = {
       id: uid(),
@@ -4295,6 +4327,8 @@ function wireActions() {
       betsLocked: false,
       betsLockedAt: null,
       betsLockDeadline,
+      elimBetsLocked: false,
+      elimBetsLockDeadline,
       airDate,
     };
     state.episodes.push(newEp);
@@ -4451,6 +4485,7 @@ function wireActions() {
       const carryGuys = guysAfterEliminations(ep).map((g) => ({ id: uid(), name: g.name }));
       const nextAirDate = ep.airDate ? getNextTuesday(new Date(ep.airDate + "T12:00:00")) : null;
       const betsLockDeadline = nextAirDate ? mondayLockDeadline(nextAirDate) : null;
+      const elimBetsLockDeadline = nextAirDate ? wednesdayLockDeadline(nextAirDate) : null;
       const newEp = {
         id: uid(),
         title: `Week ${state.episodes.length + 1}`,
@@ -4460,6 +4495,8 @@ function wireActions() {
         betsLocked: false,
         betsLockedAt: null,
         betsLockDeadline,
+        elimBetsLocked: false,
+        elimBetsLockDeadline,
         airDate: nextAirDate,
       };
       state.episodes.push(newEp);
@@ -4904,7 +4941,13 @@ function autoLockTick() {
       ep.betsLockedAt = now;
       changed = true;
       const idx = state.episodes.indexOf(ep);
-      showToast("Bets auto-l\u00E5st for " + episodeTabLabel(idx));
+      showToast("Event bets auto-låst for " + episodeTabLabel(idx));
+    }
+    if (shouldAutoLockElim(ep, now)) {
+      ep.elimBetsLocked = true;
+      changed = true;
+      const idx = state.episodes.indexOf(ep);
+      showToast("Elimination bets auto-låst for " + episodeTabLabel(idx));
     }
   }
   if (changed) {
