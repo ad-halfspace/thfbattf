@@ -90,4 +90,16 @@ window.MASTER_BET_EVENTS = [
   /* ── Production & editing ── */
   { text: "Nogen medbringer en gave p\u00E5 en date", odds: 2.6, category: "production" },
   { text: "Kostumefest-tema (80er, maskerade, osv.)", odds: 3, category: "production" },
+
+  /* ── Ankomst & episode 1 ── */
+  { text: "Nogen b\u00E6rer kostume til deres introduktion", odds: 3, category: "production" },
+  { text: "En fyr ankommer i noget andet end et normalt outfit (kostume, tema-outfit)", odds: 1.5, category: "production" },
+  { text: "Mindst \u00E9n fyr siger sit navn forkert eller snubler over sine ord", odds: 2, category: "drama" },
+  { text: "En fyr synger eller spiller et instrument p\u00E5 den r\u00F8de l\u00F8ber", odds: 2, category: "production" },
+  { text: "En fyr n\u00E6vner sin mor, bedstemor eller familie inden for 30 sekunder", odds: 5, category: "emotions" },
+  { text: "En deltager ankommer p\u00E5 en form for transport (hest, scooter, bil osv.)", odds: 3, category: "production" },
+  { text: "En deltager kysser en bachelorette (p\u00E5 h\u00E5nd eller kind) ved ankomst", odds: 3, category: "romance" },
+  { text: "En gave eller rekvisit der kr\u00E6ver montering eller ops\u00E6tningstid", odds: 8, category: "production" },
+  { text: "En fyr gr\u00E6der allerede i afsnit 1", odds: 8, category: "emotions" },
+  { text: "En fyr glemmer en af bacheloretternes navne", odds: 5, category: "drama", phase: "early-heavy" },
 ];
