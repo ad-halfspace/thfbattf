@@ -12,6 +12,27 @@ const ABOUT = "about";
 
 const EXPECTED_SEASON_LENGTH = 30;
 
+const LIKELIHOOD_PRESETS = [
+  { id: "very-likely",  label: "Very likely",  odds: 1.5 },
+  { id: "likely",       label: "Likely",       odds: 2.0 },
+  { id: "coin-flip",    label: "Coin flip",    odds: 3.0 },
+  { id: "unlikely",     label: "Unlikely",     odds: 5.0 },
+  { id: "long-shot",    label: "Long shot",    odds: 8.0 },
+];
+
+function oddsToLikelihood(odds) {
+  const v = Number(odds);
+  if (v <= 1.7) return "very-likely";
+  if (v <= 2.5) return "likely";
+  if (v <= 3.9) return "coin-flip";
+  if (v <= 6.5) return "unlikely";
+  return "long-shot";
+}
+
+function likelihoodToOdds(id) {
+  return LIKELIHOOD_PRESETS.find((p) => p.id === id)?.odds ?? 2.0;
+}
+
 const SEASON_BET_CATEGORIES = [
   { key: "mie-winner",             label: "Mies sidste rose",                 desc: "Hvem ender Mie med at v\u00E6lge?",                                                  points: 20, inputType: "contestant" },
   { key: "sofie-winner",           label: "Sofies sidste rose",               desc: "Hvem ender Sofie med at v\u00E6lge?",                                                points: 20, inputType: "contestant" },
@@ -1530,14 +1551,57 @@ function renderEventBank() {
 
       const meta = document.createElement("div");
       meta.className = "event-bank-row__meta";
+
+      let currentOdds = Number(odds);
+      const currentLikelihood = oddsToLikelihood(currentOdds);
+
+      const likelihoodSel = document.createElement("select");
+      likelihoodSel.className = "input event-bank-row__likelihood";
+      for (const p of LIKELIHOOD_PRESETS) {
+        const opt = document.createElement("option");
+        opt.value = p.id;
+        opt.textContent = p.label;
+        if (p.id === currentLikelihood) opt.selected = true;
+        likelihoodSel.append(opt);
+      }
+
       const oddsInput = document.createElement("input");
       oddsInput.type = "number";
       oddsInput.className = "input event-bank-row__odds-input";
       oddsInput.min = "1.1";
       oddsInput.max = "99";
       oddsInput.step = "0.1";
-      oddsInput.value = Number(odds).toFixed(1);
-      oddsInput.title = "Adjust base odds";
+      oddsInput.value = currentOdds.toFixed(1);
+      oddsInput.title = "Fine-tune odds";
+
+      oddsInput.addEventListener("change", () => {
+        let v = Number.parseFloat(oddsInput.value);
+        if (Number.isNaN(v) || v < 1.1) { oddsInput.value = currentOdds.toFixed(1); return; }
+        currentOdds = v;
+        if (isCustom) {
+          const entry = state.customBankEvents.find((e) => e.text === text);
+          if (entry) entry.odds = v;
+        } else if (_origText) {
+          state.bankOddsOverrides[_origText] = v;
+        }
+        oddsInput.value = v.toFixed(1);
+        likelihoodSel.value = oddsToLikelihood(v);
+        saveState();
+        updatePreview();
+      });
+
+      likelihoodSel.addEventListener("change", () => {
+        currentOdds = likelihoodToOdds(likelihoodSel.value);
+        if (isCustom) {
+          const entry = state.customBankEvents.find((e) => e.text === text);
+          if (entry) entry.odds = currentOdds;
+        } else if (_origText) {
+          state.bankOddsOverrides[_origText] = currentOdds;
+        }
+        oddsInput.value = currentOdds.toFixed(1);
+        saveState();
+        updatePreview();
+      });
 
       const previewEl = document.createElement("span");
       previewEl.className = "event-bank-row__phase-preview";
@@ -1550,28 +1614,11 @@ function renderEventBank() {
         const total = state.episodes.length;
         const epPh = getEpisodePhase(epIdx, total);
         const mult = getPhaseMultiplier(evPhase, epPh);
-        const base = Number.parseFloat(oddsInput.value) || Number(odds);
-        const adj = computePhaseAdjustedOdds(base, evPhase, epIdx, total);
-        previewEl.textContent = `Will add at ${adj.toFixed(1)}\u00D7 (base ${base.toFixed(1)} \u00D7 ${mult.toFixed(1)} ${epPh} phase)`;
+        const adj = computePhaseAdjustedOdds(currentOdds, evPhase, epIdx, total);
+        previewEl.textContent = `Will add at ${adj.toFixed(1)}\u00D7 (base ${currentOdds.toFixed(1)} \u00D7 ${mult.toFixed(1)} ${epPh} phase)`;
       };
       leftCol.append(previewEl);
 
-      oddsInput.addEventListener("change", () => {
-        let v = Number.parseFloat(oddsInput.value);
-        if (Number.isNaN(v) || v < 1.1) { oddsInput.value = Number(odds).toFixed(1); return; }
-        if (isCustom) {
-          const entry = state.customBankEvents.find((e) => e.text === text);
-          if (entry) entry.odds = v;
-        } else if (_origText) {
-          state.bankOddsOverrides[_origText] = v;
-        }
-        oddsInput.value = v.toFixed(1);
-        saveState();
-        updatePreview();
-      });
-      const oddsWrap = document.createElement("span");
-      oddsWrap.className = "odds-input-wrap";
-      oddsWrap.append(oddsInput);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "btn btn--secondary event-bank-row__btn";
@@ -1582,9 +1629,7 @@ function renderEventBank() {
           alert("Choose an episode in the dropdown first.");
           return;
         }
-        let customOdds = Number.parseFloat(oddsInput.value);
-        if (Number.isNaN(customOdds) || customOdds < 1.1) customOdds = Number(odds);
-        addMasterEventToEpisode(epId, text, customOdds, evPhase);
+        addMasterEventToEpisode(epId, text, currentOdds, evPhase);
       });
 
       const rm = document.createElement("button");
@@ -1606,7 +1651,7 @@ function renderEventBank() {
         populateMasterEventDatalist();
         renderEventBank();
       });
-      meta.append(phaseBadge, oddsWrap, btn, rm);
+      meta.append(phaseBadge, likelihoodSel, oddsInput, btn, rm);
       row.append(leftCol, meta);
       body.append(row);
 
@@ -3367,10 +3412,64 @@ function renderAbout() {
     <span class="about-split__label-text">How It Works</span>
   </div>
   <div class="about-split__content">
-    <p class="about__lede">Every Tuesday, Wednesday, and Thursday a new episode airs.</p>
-    <p>Before midnight on air day, each of us picks three events we think will happen from a bank of way too many bets. Each event has odds. Rarer events are worth more. This is gambling for people who are too anxious to actually gamble.</p>
-    <p>Thursdays come with a rose ceremony, which adds one extra bet: who\u2019s going home? Correct eliminations pay out based on how many contestants are still in the running. Early-season guesses are genuinely hard. Late-season guesses are mostly vibes.</p>
-    <p>After the episode we tick off what actually happened. Points get tallied. The leaderboard updates. A recap lands Friday morning, which we then immediately misread and take personally.</p>
+    <div class="about-numbered">
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">01</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Pick your bets</h3>
+          <p>Before each episode airs, each of us picks <strong>3 events</strong> from a bank of way too many bets \u2014 things like \u201Csomeone cries,\u201D \u201Ca group date goes wrong,\u201D or \u201CStig Rossen makes an appearance.\u201D Each event has odds. Rarer events pay more. This is gambling for people who are too anxious to actually gamble.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">02</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Roseceremonien</h3>
+          <p>Thursdays come with a rose ceremony, which adds an <strong>extra elimination bet</strong>: who\u2019s going home? Correct guesses pay out based on how many contestants are still in the running. Early-season guesses are genuinely hard. Late-season guesses are mostly vibes.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">03</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Bets lock automatically</h3>
+          <p>At midnight on air day, all bets lock \u2014 no late entries, no edits, no mercy. We love each other. We don\u2019t trust each other.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">04</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Mark what happened</h3>
+          <p>After the episode we tick off what actually happened and who got eliminated. Points get tallied automatically and the leaderboard updates instantly.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">05</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Nuttet</h3>
+          <p>Every Thursday, each of us picks which contestant we thought was cutest that week. It\u2019s worth zero points \u2014 pure vibes, no strategy. A running tally on the overview page shows who the group collectively finds most adorable. It\u2019s a feelings column.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">06</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">S\u00E6sonbets</h3>
+          <p>At the start of the season, we lock in <strong>long-range predictions</strong> \u2014 who wins, first kiss, biggest villain, and more. These don\u2019t pay out until the finale, but they carry big points and can completely swing the final standings.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">07</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Stats &amp; weekly recaps</h3>
+          <p>The app tracks everything: hit rates, streaks, total points per episode, and detailed player stats. A recap lands Friday morning, which we then immediately misread and take personally.</p>
+        </div>
+      </div>
+      <div class="about-numbered__item">
+        <span class="about-numbered__num">08</span>
+        <div class="about-numbered__body">
+          <h3 class="about-numbered__title">Everything syncs live</h3>
+          <p>No refreshing. No \u201Cdid you see my bet?\u201D If Yas places a bet from her couch, Thiller\u2019s phone knows about it before Yas has set the phone down. Open it on your phone during the episode or check the leaderboard on your laptop the next morning.</p>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -3381,43 +3480,11 @@ function renderAbout() {
     <span class="about-split__label-text">Our Approach</span>
   </div>
   <div class="about-split__content">
-    <div class="about-numbered">
-      <div class="about-numbered__item">
-        <span class="about-numbered__num">01</span>
-        <div class="about-numbered__body">
-          <h3 class="about-numbered__title">Fun before fair</h3>
-          <p>Perfect odds would make this a math exercise. We have spreadsheets at work. We did not build this to use another spreadsheet. A 20\u00D7 bet on something absurd happening is the entire personality of this site.</p>
-        </div>
-      </div>
-      <div class="about-numbered__item">
-        <span class="about-numbered__num">02</span>
-        <div class="about-numbered__body">
-          <h3 class="about-numbered__title">No accounts, no logins</h3>
-          <p>Four of us, one shared state, Firebase doing the actual work. If we can\u2019t trust each other not to tamper with the database, the friendship is cooked anyway and no login screen is going to save it.</p>
-        </div>
-      </div>
-      <div class="about-numbered__item">
-        <span class="about-numbered__num">03</span>
-        <div class="about-numbered__body">
-          <h3 class="about-numbered__title">Everything syncs live</h3>
-          <p>No refreshing. No \u201Cdid you see my bet?\u201D If Yas places a bet from her couch, Thiller\u2019s phone knows about it before Yas has set the phone down.</p>
-        </div>
-      </div>
-      <div class="about-numbered__item">
-        <span class="about-numbered__num">04</span>
-        <div class="about-numbered__body">
-          <h3 class="about-numbered__title">Bachelorette-specific</h3>
-          <p>The events know this is Mie and Sofie\u2019s season. They know about Lulu. They reference Sicily. A bet bank that doesn\u2019t mention Stig Rossen at least once is a bet bank that has failed you.</p>
-        </div>
-      </div>
-      <div class="about-numbered__item">
-        <span class="about-numbered__num">05</span>
-        <div class="about-numbered__body">
-          <h3 class="about-numbered__title">Odds aren\u2019t sacred</h3>
-          <p>We tune them between episodes. If \u201Csomeone cries\u201D keeps happening 100% of the time, that is feedback from the universe and we take it seriously. Dulde has a whole theory about this. We do not have time to hear the whole theory.</p>
-        </div>
-      </div>
-    </div>
+    <p class="about__lede">Fun before fair. Always.</p>
+    <p>Perfect odds would make this a math exercise. We have spreadsheets at work. We did not build this to use another spreadsheet. A 20\u00D7 bet on something absurd happening is the entire personality of this site.</p>
+    <p>There are no accounts, no logins. Four of us, one shared state, Firebase doing the actual work. If we can\u2019t trust each other not to tamper with the database, the friendship is cooked anyway and no login screen is going to save it.</p>
+    <p>The bet bank is bachelorette-specific. The events know this is Mie and Sofie\u2019s season. They know about Lulu. They reference Sicily. A bet bank that doesn\u2019t mention Stig Rossen at least once is a bet bank that has failed you.</p>
+    <p>Odds aren\u2019t sacred. We tune them between episodes. If \u201Csomeone cries\u201D keeps happening 100% of the time, that is feedback from the universe and we take it seriously. Dulde has a whole theory about this. We do not have time to hear the whole theory.</p>
   </div>
 </section>
 
@@ -4221,21 +4288,20 @@ function wireActions() {
   });
   document.getElementById("add-custom-bank-event")?.addEventListener("click", () => {
     const textEl = document.getElementById("custom-bank-text");
-    const oddsEl = document.getElementById("custom-bank-odds");
+    const likelihoodEl = document.getElementById("custom-bank-likelihood");
     const catEl = document.getElementById("custom-bank-category");
     const phaseEl = document.getElementById("custom-bank-phase");
     const text = (textEl?.value ?? "").trim();
-    let odds = Number.parseFloat(oddsEl?.value);
+    const odds = likelihoodToOdds(likelihoodEl?.value);
     const category = catEl?.value || "_custom";
     const phase = phaseEl?.value || "any";
     if (!text) { alert("Enter a bet description."); return; }
-    if (Number.isNaN(odds) || odds < 1.1) odds = 2.0;
     const dupe = masterBetEvents().some((e) => e.text.trim().toLowerCase() === text.toLowerCase());
     if (dupe) { alert("That bet already exists in the bank."); return; }
     state.customBankEvents.push({ text, odds, category, phase });
     saveState();
     textEl.value = "";
-    oddsEl.value = "2.0";
+    if (likelihoodEl) likelihoodEl.value = "likely";
     if (phaseEl) phaseEl.value = "any";
     populateMasterEventDatalist();
     renderEventBank();

@@ -824,6 +824,17 @@ body {
   white-space: nowrap;
 }
 
+.event-bank-row__likelihood {
+  padding: 0.3rem 0.4rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--ink);
+  cursor: pointer;
+}
+
 .event-bank-row__odds-input {
   width: 4.2rem;
   padding: 0.3rem 0.4rem;
@@ -1066,16 +1077,15 @@ body {
 }
 
 .bank-custom-form__row .input:first-child {
-  flex: 1 1 12rem;
+  flex: 1 1 100%;
   min-width: 0;
 }
 
-.bank-custom-form__cat {
-  max-width: 12rem;
-}
-
+.bank-custom-form__likelihood,
+.bank-custom-form__cat,
 .bank-custom-form__phase {
-  max-width: 9rem;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .player-list-static {
@@ -1515,10 +1525,15 @@ body {
   .bank-custom-form__row .input:first-child {
     flex: 1 1 100%;
   }
+  .bank-custom-form__likelihood,
   .bank-custom-form__cat,
   .bank-custom-form__phase {
     max-width: none;
-    flex: 1 1 6rem;
+    flex: 1 1 0;
+  }
+  .event-bank-row__likelihood {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.3rem;
   }
 
   /* phase explainer */

@@ -179,16 +179,13 @@
               maxlength="140"
               autocomplete="off"
             />
-            <input
-              type="number"
-              id="custom-bank-odds"
-              class="input input--narrow"
-              min="1.1"
-              max="99"
-              step="0.1"
-              value="2.0"
-              title="Decimal odds"
-            />
+            <select id="custom-bank-likelihood" class="input bank-custom-form__likelihood" title="How likely is this?">
+              <option value="very-likely">Very likely (1.5×)</option>
+              <option value="likely" selected>Likely (2.0×)</option>
+              <option value="coin-flip">Coin flip (3.0×)</option>
+              <option value="unlikely">Unlikely (5.0×)</option>
+              <option value="long-shot">Long shot (8.0×)</option>
+            </select>
             <select id="custom-bank-category" class="input bank-custom-form__cat"></select>
             <select id="custom-bank-phase" class="input bank-custom-form__phase" title="Season phase weighting">
               <option value="any">any phase</option>
