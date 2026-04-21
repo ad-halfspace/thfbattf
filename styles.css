@@ -1786,22 +1786,23 @@ body {
   pointer-events: none;
 }
 
-/* ── Bets-lock banner (lighter than closed banner) ── */
+/* ── Bets-lock banner ── */
 .bets-lock-banner {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.7rem 1rem;
-  background: transparent;
-  border: 1px solid color-mix(in srgb, var(--rose-red) 25%, var(--line));
+  padding: 0.85rem 1.2rem;
+  background: color-mix(in srgb, var(--gold-mid) 12%, var(--cream-card));
+  border-left: 3px solid var(--gold-mid);
   border-radius: var(--radius);
-  margin-bottom: 0.25rem;
+  margin-top: -0.75rem;
+  margin-bottom: 1.5rem;
 }
 .bets-lock-banner__text {
   font-size: 0.8125rem;
   color: var(--ink);
-  line-height: 1.45;
+  line-height: 1.5;
 }
 
 /* ── Deadline display ── */
