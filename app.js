@@ -4191,10 +4191,17 @@ function renderEpisodeContent() {
     const showBetsLock = ep?.betsLocked && !closed;
     betsLockBanner.hidden = !showBetsLock;
     if (showBetsLock && betsLockText) {
-      let msg = "Bets er l\u00E5st. Events og resultater kan stadig redigeres.";
+      const elimLocked = isElimBetsLocked(ep);
+      let msg = elimLocked
+        ? "Event og elimination bets er l\u00E5st."
+        : "Event bets er l\u00E5st.";
       if (ep.betsLockedAt) {
         msg += " \u00B7 L\u00E5st " + formatDeadlineTime(ep.betsLockedAt);
       }
+      const still = [];
+      if (!elimLocked) still.push("dit bud p\u00E5 hvem der ikke f\u00E5r en rose (til ons. 23:59)");
+      still.push("nuttet (til ugen lukkes)");
+      msg += " \u00B7 Du kan stadig redigere " + still.join(" og ") + ".";
       betsLockText.textContent = msg;
     }
   }
