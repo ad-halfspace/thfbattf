@@ -465,9 +465,22 @@ function saveNoteDebounced(contestantName, text, delay) {
   }, delay);
 }
 
-function saveState() {
+function saveState(paths) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-  if (!suppressFirebaseWrite) {
+  if (suppressFirebaseWrite) return;
+  if (Array.isArray(paths) && paths.length) {
+    const updates = {};
+    for (const p of paths) {
+      const segs = p.split("/").filter(Boolean);
+      let v = state;
+      for (const s of segs) {
+        v = v == null ? undefined : v[s];
+        if (v === undefined) break;
+      }
+      updates[p] = v === undefined ? null : v;
+    }
+    fbRef.update(updates).catch(() => {});
+  } else {
     fbRef.set(sharedState()).catch(() => {});
   }
 }
@@ -2075,7 +2088,7 @@ function renderBets() {
         }
         while (cleaned.length < MAX_BETS) cleaned.push("");
         state.bets[ep.id][p] = cleaned.slice(0, MAX_BETS);
-        saveState();
+        saveState([`bets/${ep.id}/${p}`]);
         renderBets();
         renderResults();
         renderEpisodeScoreSummary();
@@ -2144,7 +2157,7 @@ function renderResults() {
       if (cb.checked) next.add(ev.id);
       else next.delete(ev.id);
       state.occurred[ep.id] = [...next];
-      saveState();
+      saveState([`occurred/${ep.id}`]);
       renderEpisodeScoreSummary();
       renderLeaderboard();
     });
@@ -2202,7 +2215,7 @@ function renderEliminationBets() {
     select.addEventListener("change", () => {
       ensureEpisodeMaps(ep.id);
       state.eliminationBets[ep.id][p] = select.value;
-      saveState();
+      saveState([`eliminationBets/${ep.id}/${p}`]);
       renderEpisodeScoreSummary();
       renderLeaderboard();
     });
@@ -2646,7 +2659,7 @@ function renderSeasonBets() {
         const input = buildSeasonInput(cat, currentPick, locked, (val) => {
           if (!state.seasonBets[p]) state.seasonBets[p] = {};
           state.seasonBets[p][cat.key] = val;
-          saveState();
+          saveState([`seasonBets/${p}/${cat.key}`]);
           renderSeasonBets();
         });
 
@@ -2673,7 +2686,7 @@ function renderSeasonBets() {
       const input = buildSeasonInput(cat, state.seasonResults?.[cat.key] || "", false, (val) => {
         if (!state.seasonResults) state.seasonResults = {};
         state.seasonResults[cat.key] = val;
-        saveState();
+        saveState([`seasonResults/${cat.key}`]);
         renderSeasonBets();
         renderLeaderboard();
       });
@@ -3979,7 +3992,7 @@ function renderPlayerSections() {
         }
         while (cleaned.length < MAX_BETS) cleaned.push("");
         state.bets[ep.id][p] = cleaned.slice(0, MAX_BETS);
-        saveState();
+        saveState([`bets/${ep.id}/${p}`]);
         renderBets();
         renderResults();
         renderEpisodeScoreSummary();
@@ -4052,7 +4065,7 @@ function renderElimSection() {
     select.addEventListener("change", () => {
       ensureEpisodeMaps(ep.id);
       state.eliminationBets[ep.id][p] = select.value;
-      saveState();
+      saveState([`eliminationBets/${ep.id}/${p}`]);
       renderEliminationBets();
       renderEpisodeScoreSummary();
       renderLeaderboard();
