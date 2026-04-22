@@ -2976,6 +2976,64 @@ body {
   padding: 0 1.25rem 1.25rem;
 }
 
+#episode-workspace .panel--collapsible {
+  padding: 0;
+  overflow: hidden;
+  align-self: start;
+}
+
+.panel-collapsible {
+  margin: 0;
+}
+
+.panel-collapsible > .panel-collapsible__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.5rem 2.25rem;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+  transition: color var(--duration) var(--ease);
+}
+
+.panel-collapsible > .panel-collapsible__summary:hover {
+  color: var(--ink-soft);
+}
+
+.panel-collapsible > .panel-collapsible__summary::-webkit-details-marker,
+.panel-collapsible > .panel-collapsible__summary::marker {
+  display: none;
+  content: "";
+}
+
+.panel-collapsible > .panel-collapsible__summary::after {
+  content: "";
+  margin-left: auto;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5L6 8.5L10 4.5' fill='none' stroke='%231a1a1a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat center;
+  transition: transform var(--duration) var(--ease), background-color var(--duration) var(--ease);
+}
+
+.panel-collapsible[open] > .panel-collapsible__summary::after {
+  transform: rotate(180deg);
+  background-color: var(--ink);
+  border-color: var(--ink);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2 4.5L6 8.5L10 4.5' fill='none' stroke='%23ffffff' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+.panel-collapsible__title {
+  margin: 0;
+}
+
+.panel-collapsible__body {
+  padding: 0 2.25rem 2rem;
+}
+
 .ov-bets-player {
   display: grid;
   grid-template-columns: 5rem 1fr;

@@ -281,10 +281,16 @@
         <p id="episode-score-top" class="score-summary score-summary--top panel--wide" hidden></p>
         <div id="deadline-display" class="deadline-display" hidden></div>
         <div id="episode-airdate-bar" class="episode-airdate-bar" hidden></div>
-        <section class="panel" aria-labelledby="guys-heading">
-          <h2 id="guys-heading" class="panel__title">Contestants this week</h2>
-          <div id="guys-grid" class="guys-grid"></div>
-          <button type="button" id="add-guy-toggle" class="btn btn--add-episode">+ Add contestant</button>
+        <section class="panel panel--collapsible" aria-labelledby="guys-heading">
+          <details class="panel-collapsible">
+            <summary class="panel-collapsible__summary">
+              <h2 id="guys-heading" class="panel__title panel-collapsible__title">Contestants this week</h2>
+            </summary>
+            <div class="panel-collapsible__body">
+              <div id="guys-grid" class="guys-grid"></div>
+              <button type="button" id="add-guy-toggle" class="btn btn--add-episode">+ Add contestant</button>
+            </div>
+          </details>
           <div id="add-guy-modal" class="modal-overlay" hidden>
             <div class="modal-overlay__box">
               <h3 class="modal-overlay__title">Add contestant to week</h3>
@@ -298,35 +304,41 @@
           </div>
         </section>
 
-        <section class="panel" aria-labelledby="events-heading">
-          <h2 id="events-heading" class="panel__title">Events &amp; odds</h2>
-          <p class="panel__hint">
-            Odds are shown as multipliers (e.g. 3.5×). Higher = less likely — more points if you’re right.
-          </p>
-          <ul id="events-list" class="events-list"></ul>
-          <div class="add-event">
-            <input
-              type="text"
-              id="new-event-text"
-              class="input"
-              placeholder="Describe an event"
-              maxlength="120"
-              list="master-event-suggestions"
-              autocomplete="off"
-            />
-            <datalist id="master-event-suggestions"></datalist>
-            <input
-              type="number"
-              id="new-event-odds"
-              class="input input--narrow"
-              min="1.1"
-              max="99"
-              step="0.1"
-              value="2"
-              title="Decimal odds multiplier"
-            />
-            <button type="button" id="add-event" class="btn btn--secondary">Add event</button>
-          </div>
+        <section class="panel panel--collapsible" aria-labelledby="events-heading">
+          <details class="panel-collapsible">
+            <summary class="panel-collapsible__summary">
+              <h2 id="events-heading" class="panel__title panel-collapsible__title">Events &amp; odds</h2>
+            </summary>
+            <div class="panel-collapsible__body">
+              <p class="panel__hint">
+                Odds are shown as multipliers (e.g. 3.5×). Higher = less likely — more points if you’re right.
+              </p>
+              <ul id="events-list" class="events-list"></ul>
+              <div class="add-event">
+                <input
+                  type="text"
+                  id="new-event-text"
+                  class="input"
+                  placeholder="Describe an event"
+                  maxlength="120"
+                  list="master-event-suggestions"
+                  autocomplete="off"
+                />
+                <datalist id="master-event-suggestions"></datalist>
+                <input
+                  type="number"
+                  id="new-event-odds"
+                  class="input input--narrow"
+                  min="1.1"
+                  max="99"
+                  step="0.1"
+                  value="2"
+                  title="Decimal odds multiplier"
+                />
+                <button type="button" id="add-event" class="btn btn--secondary">Add event</button>
+              </div>
+            </div>
+          </details>
         </section>
 
         <section class="panel panel--wide desktop-bet-section" aria-labelledby="bets-heading">
