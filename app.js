@@ -4529,6 +4529,7 @@ function wireActions() {
     if (!ep) return;
     if (!confirm("Unlock bets? Players will be able to change their picks again.")) return;
     ep.betsLocked = false;
+    ep.elimBetsLocked = false;
     saveState();
     renderMainTabs();
     renderEpisodeContent();
