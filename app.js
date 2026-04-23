@@ -288,6 +288,14 @@ function deleteActiveEpisode() {
     state.activeTab = state.episodes[nextIdx].id;
   }
   saveState();
+  if (!suppressFirebaseWrite) {
+    fbRef.update({
+      [`bets/${id}`]: null,
+      [`occurred/${id}`]: null,
+      [`eliminationBets/${id}`]: null,
+      [`nuttet/${id}`]: null,
+    }).catch(() => {});
+  }
   renderMainTabs();
   updateViewVisibility();
   if (activeEpisode()) renderEpisodeContent();
@@ -465,6 +473,8 @@ function saveNoteDebounced(contestantName, text, delay) {
   }, delay);
 }
 
+const SYNC_EDIT_KEYS = ["bets", "occurred", "eliminationBets", "seasonBets", "seasonResults"];
+
 function saveState(paths) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   if (suppressFirebaseWrite) return;
@@ -481,7 +491,9 @@ function saveState(paths) {
     }
     fbRef.update(updates).catch(() => {});
   } else {
-    fbRef.set(sharedState()).catch(() => {});
+    const shared = { ...sharedState() };
+    for (const k of SYNC_EDIT_KEYS) delete shared[k];
+    fbRef.update(shared).catch(() => {});
   }
 }
 
@@ -2005,12 +2017,24 @@ function renderEvents() {
       if (frozen) rm.disabled = true;
       rm.addEventListener("click", () => {
         ep.events = ep.events.filter((x) => x.id !== ev.id);
+        const betPaths = [];
         for (let i = 0; i < PLAYER_COUNT; i++) {
           const b = state.bets[ep.id]?.[i];
-          if (b) state.bets[ep.id][i] = b.filter((id) => id !== ev.id);
+          if (b) {
+            state.bets[ep.id][i] = b.filter((id) => id !== ev.id);
+            betPaths.push(`bets/${ep.id}/${i}`);
+          }
         }
         state.occurred[ep.id] = (state.occurred[ep.id] || []).filter((id) => id !== ev.id);
         saveState();
+        if (!suppressFirebaseWrite) {
+          const updates = { [`occurred/${ep.id}`]: state.occurred[ep.id] };
+          for (const p of betPaths) {
+            const parts = p.split("/");
+            updates[p] = state.bets[parts[1]][parts[2]];
+          }
+          fbRef.update(updates).catch(() => {});
+        }
         renderEvents();
         renderBets();
         renderResults();
