@@ -896,11 +896,11 @@ function computeWeeklyRecap(weekId) {
 }
 
 function shouldAutoLock(ep, now) {
-  return ep.betsLockDeadline && !ep.betsLocked && !ep.closed && now >= ep.betsLockDeadline;
+  return ep.betsLockDeadline && !ep.betsLocked && !ep.closed && !ep.lockOverridden && now >= ep.betsLockDeadline;
 }
 
 function shouldAutoLockElim(ep, now) {
-  return ep.elimBetsLockDeadline && !ep.elimBetsLocked && !ep.closed && now >= ep.elimBetsLockDeadline;
+  return ep.elimBetsLockDeadline && !ep.elimBetsLocked && !ep.closed && !ep.lockOverridden && now >= ep.elimBetsLockDeadline;
 }
 
 let toastTimer = null;
@@ -4530,6 +4530,7 @@ function wireActions() {
     if (!confirm("Unlock bets? Players will be able to change their picks again.")) return;
     ep.betsLocked = false;
     ep.elimBetsLocked = false;
+    ep.lockOverridden = true;
     saveState();
     renderMainTabs();
     renderEpisodeContent();
