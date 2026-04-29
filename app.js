@@ -479,6 +479,33 @@ function saveState(paths) {
     for (const k of SYNC_EDIT_KEYS) delete shared[k];
     fbRef.update(shared).catch(() => {});
   }
+  scheduleBackup();
+}
+
+const BACKUP_DEBOUNCE_MS = 60000;
+const BACKUP_KEEP = 50;
+let backupTimer = null;
+
+function scheduleBackup() {
+  if (suppressFirebaseWrite) return;
+  if (backupTimer) return;
+  backupTimer = setTimeout(() => {
+    backupTimer = null;
+    writeAutoBackup().catch((e) => console.error("Auto-backup failed:", e));
+  }, BACKUP_DEBOUNCE_MS);
+}
+
+async function writeAutoBackup() {
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
+  await fbDb.ref("backups/" + ts).set(sharedState());
+  const all = await fbDb.ref("backups").orderByKey().once("value");
+  const keys = Object.keys(all.val() || {}).sort();
+  if (keys.length > BACKUP_KEEP) {
+    const toDelete = keys.slice(0, keys.length - BACKUP_KEEP);
+    const updates = {};
+    for (const k of toDelete) updates[`backups/${k}`] = null;
+    await fbDb.ref().update(updates);
+  }
 }
 
 function getEpisode(id) {
