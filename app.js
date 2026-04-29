@@ -140,119 +140,103 @@ function photoFallback(img, name) {
   setTimeout(() => { if (!img.complete || !img.naturalWidth) swap(); }, 3000);
 }
 
-/** Bachelorette sæson 4 (2026), TV 2 — pressekit */
+/** Bachelorette sæson 4 (2026) — fotos via femina.dk imgix CDN */
 const CAST_BA4_2026 = [
   {
     name: "Adam",
     age: 23,
     occupation: "Studerende",
-    photo:
-      "https://omtv2.tv2.dk/media/xm4lf2rz/adam.jpg?center=0.41073328466538539,0.50163841616193161&mode=crop&quality=80&width=480&height=320&rnd=134193377557800000",
+    photo: "https://imgix.femina.dk/2026-04-07/Adam.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Anders",
     age: 27,
     occupation: "Cand. merc. Management Accounting and Control",
-    photo:
-      "https://omtv2.tv2.dk/media/bkkpx0wi/anders.jpg?center=0.40773980901000217,0.55452967155337163&mode=crop&quality=80&width=480&height=320&rnd=134193378750630000",
+    photo: "https://imgix.femina.dk/2026-04-07/Anders-Bachelorette.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Carl-Emil",
     age: 27,
     occupation: "Gartner",
-    photo:
-      "https://omtv2.tv2.dk/media/5rfh2jpw/carl-emil.jpg?center=0.4302558904041911,0.59744123614829869&mode=crop&quality=80&width=480&height=320&rnd=134193487571770000",
+    photo: "https://imgix.femina.dk/2026-04-07/Carl-Emil.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Christian",
     age: 30,
     occupation: "Regissør",
-    photo:
-      "https://omtv2.tv2.dk/media/db0dxmdg/christian.jpg?center=0.40773980901000217,0.507548533670212&mode=crop&quality=80&width=480&height=320&rnd=134193379168370000",
+    photo: "https://imgix.femina.dk/2026-04-07/Christian.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Frederik Alexander",
     age: 24,
     occupation: "Personlig træner og gymnastiktræner",
-    photo:
-      "https://omtv2.tv2.dk/media/f21fjdga/frederik-alexander.jpg?center=0.43366064677147864,0.54480943612926958&mode=crop&quality=80&width=480&height=320&rnd=134193379526130000",
+    photo: "https://imgix.femina.dk/2026-04-07/Frederik-Alexander.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Frederik P",
     age: 29,
     occupation: "Studerende",
-    photo:
-      "https://omtv2.tv2.dk/media/ngylohyf/frederik-p.jpg?center=0.44518101910991259,0.47514774892320549&mode=crop&quality=80&width=480&height=320&rnd=134193379760370000",
+    photo: "https://imgix.femina.dk/2026-04-07/Frederik-P.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Jacob",
     age: 32,
     occupation: "Senior Art Director",
-    photo:
-      "https://omtv2.tv2.dk/media/3rheorcn/jacob.jpg?center=0.43942083294069562,0.53346916146781731&mode=crop&quality=80&width=480&height=320&rnd=134193379888970000",
+    photo: "https://imgix.femina.dk/2026-04-07/Jacob.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Jasper",
     age: 24,
     occupation: "Studerende og virksomhedsejer",
-    photo:
-      "https://omtv2.tv2.dk/media/2byh3noh/jasper.jpg?center=0.4681583120773789,0.57284127255624484&mode=crop&quality=80&width=480&height=320&rnd=134193380081800000",
+    photo: "https://imgix.femina.dk/2026-04-07/Jasper.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Laurids",
     age: 26,
     occupation: "Lærerstuderende",
-    photo:
-      "https://omtv2.tv2.dk/media/303btcsh/laurids.jpg?center=0.43654073985608716,0.63229155494618738&mode=crop&quality=80&width=480&height=320&rnd=134193380259470000",
+    photo: "https://imgix.femina.dk/2026-04-07/Laurids.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Lauritz",
     age: 26,
     occupation: "Marketingrådgiver",
-    photo:
-      "https://omtv2.tv2.dk/media/xopnplsr/lauritz.jpg?center=0.46246157761756357,0.50916857290756234&mode=crop&quality=80&width=480&height=320&rnd=134193380437800000",
+    photo: "https://imgix.femina.dk/2026-04-07/Lauritz.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Michael",
     age: 31,
     occupation: "Renovationsmedarbejder",
-    photo:
-      "https://omtv2.tv2.dk/media/iwqp1hhz/michael.jpg?center=0.45382129836373808,0.52536896528106569&mode=crop&quality=80&width=480&height=320&rnd=134193380667100000",
+    photo: "https://imgix.femina.dk/2026-04-07/Michael.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Oliver",
     age: 28,
     occupation: "Senior IT Architect og lektor på CBS",
-    photo:
-      "https://omtv2.tv2.dk/media/hm3c5kqq/oliver.jpg?center=0.43654073985608716,0.48486798434730743&mode=crop&quality=80&width=480&height=320&rnd=134193380879230000",
+    photo: "https://imgix.femina.dk/2026-04-07/Oliver.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Sigurd",
     age: 24,
     occupation: "Studerende",
-    photo:
-      "https://omtv2.tv2.dk/media/kjehdgxn/sigurd.jpg?center=0.43366064677147864,0.51564872985696364&mode=crop&quality=80&width=480&height=320&rnd=134193381081500000",
+    photo: "https://imgix.femina.dk/2026-04-07/Sigurd.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Simon",
     age: 26,
     occupation: "Værkfører",
-    photo:
-      "https://omtv2.tv2.dk/media/vu0ngpvr/simon.jpg?center=0.38652232693512817,0.515441357508119&mode=crop&quality=80&width=480&height=320&rnd=134193383872530000",
+    photo: "https://imgix.femina.dk/2026-04-07/Simon.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Søren",
     age: 32,
     occupation: "Lærer",
-    photo:
-      "https://omtv2.tv2.dk/media/wqclkq13/soeren.jpg?center=0.45382129836373808,0.502688415958161&mode=crop&quality=80&width=480&height=320&rnd=134193384054030000",
+    photo: "https://imgix.femina.dk/2026-04-07/Soren.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
   {
     name: "Theis",
     age: 26,
     occupation: "Universitetsstuderende",
-    photo:
-      "https://omtv2.tv2.dk/media/1p5jk4gf/theis.jpg?center=0.42150917771037849,0.44492146187756459&mode=crop&quality=80&width=480&height=320&rnd=134193384191570000",
+    photo: "https://imgix.femina.dk/2026-04-07/Theis.jpeg?auto=format,compress&fit=crop&crop=faces,entropy&ar=4:3&w=480",
   },
 ];
 
